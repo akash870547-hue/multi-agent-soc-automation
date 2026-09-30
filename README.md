@@ -103,6 +103,16 @@ The public GitHub Pages dashboard runs in demo mode by default. To connect it to
 
 `?api=http://localhost:8000`
 
+## Experiments
+
+A reproducible synthetic SOC dataset is provided under `experiments/dataset.json`. Run the evaluation with:
+
+```bash
+python experiments/evaluate.py
+```
+
+The runner reports classification metrics for the current multi-agent pipeline and a simple keyword baseline, including accuracy, precision, recall, F1, and confusion-matrix counts. The dataset is intentionally small and synthetic; it is a development/research fixture, not a production benchmark.
+
 ## Test
 
 ```bash
@@ -127,7 +137,7 @@ pytest
 - [x] Pluggable reasoning provider with optional OpenAI adapter
 - [x] Optional API-key authentication
 - [ ] Role-based access
-- [ ] MTTD/MTTR experiment dataset and evaluation framework
+- [x] Initial MTTD/MTTR experiment dataset and classification evaluation framework
 - [ ] Threat intelligence provider adapters
 - [ ] Production backend deployment
 - [ ] Production-grade live dashboard
