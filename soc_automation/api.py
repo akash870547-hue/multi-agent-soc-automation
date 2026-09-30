@@ -6,10 +6,11 @@ import sqlite3
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from .correlation import correlate_event
 from .models import SecurityEvent
 from .pipeline import process_event
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.2.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -93,6 +94,30 @@ def load_events() -> list[dict]:
     return [json.loads(row["payload"]) for row in rows]
 
 
+def find_event(event_id: str) -> dict | None:
+    with db() as connection:
+        row = connection.execute(
+            "SELECT payload FROM events WHERE event_id = ?",
+            (event_id,),
+        ).fetchone()
+    return json.loads(row["payload"]) if row else None
+
+
+def get_incident_or_404(incident_id: str) -> dict:
+    with db() as connection:
+        row = connection.execute(
+            "SELECT payload FROM incidents WHERE incident_id = ?",
+            (incident_id,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return json.loads(row["payload"])
+
+
+def iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite"}
@@ -118,39 +143,53 @@ def list_incidents():
 
 @app.get("/api/incidents/{incident_id}")
 def get_incident(incident_id: str):
-    with db() as connection:
-        row = connection.execute(
-            "SELECT payload FROM incidents WHERE incident_id = ?",
-            (incident_id,),
-        ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Incident not found")
-    return json.loads(row["payload"])
+    return get_incident_or_404(incident_id)
 
 
 @app.post("/api/incidents/{incident_id}/approve")
 def approve_incident(incident_id: str):
-    incident = get_incident(incident_id)
+    incident = get_incident_or_404(incident_id)
     incident["governance"]["approved"] = True
-    incident["governance"]["approved_at"] = datetime.now(timezone.utc).isoformat()
+    incident["governance"]["approved_at"] = iso_now()
     incident["approved_actions"] = incident["recommendations"]
+    save_incident(incident)
+    return incident
+
+
+@app.post("/api/incidents/{incident_id}/acknowledge")
+def acknowledge_incident(incident_id: str):
+    incident = get_incident_or_404(incident_id)
+    if not incident.get("acknowledged_at"):
+        incident["acknowledged_at"] = iso_now()
+    if incident["status"] == "open":
+        incident["status"] = "investigating"
+    save_incident(incident)
+    return incident
+
+
+@app.post("/api/incidents/{incident_id}/resolve")
+def resolve_incident(incident_id: str):
+    incident = get_incident_or_404(incident_id)
+    if not incident.get("acknowledged_at"):
+        incident["acknowledged_at"] = iso_now()
+    incident["resolved_at"] = iso_now()
+    incident["status"] = "resolved"
     save_incident(incident)
     return incident
 
 
 @app.post("/api/events")
 def ingest_event(event: SecurityEvent):
+    prior_events = load_events()
     save_event(event)
     result = process_event(event)
 
     if result:
-        prior = [
-            item for item in load_events()[:-1]
-            if event.source_ip and item.get("source_ip") == event.source_ip
-        ]
-        if prior:
+        result["correlation"] = correlate_event(event, prior_events)
+        if result["correlation"]["matched"]:
             result["findings"].append(
-                f"Correlated with {len(prior)} earlier event(s) from the same source IP."
+                f"Correlated with {len(result['correlation']['related_events'])} "
+                "recent event(s) using shared security pivots."
             )
         save_incident(result)
 
@@ -160,10 +199,34 @@ def ingest_event(event: SecurityEvent):
 @app.get("/api/metrics")
 def metrics():
     values = load_incidents()
+    mttd_values = []
+    mttr_values = []
+
+    for incident in values:
+        event = find_event(incident["alert"]["event_id"])
+        if not event:
+            continue
+
+        try:
+            event_time = datetime.fromisoformat(event["timestamp"])
+            detected_time = datetime.fromisoformat(incident["detected_at"])
+            mttd_values.append(max(0.0, (detected_time - event_time).total_seconds()))
+
+            if incident.get("resolved_at"):
+                start = datetime.fromisoformat(
+                    incident.get("acknowledged_at") or incident["detected_at"]
+                )
+                resolved = datetime.fromisoformat(incident["resolved_at"])
+                mttr_values.append(max(0.0, (resolved - start).total_seconds()))
+        except (KeyError, TypeError, ValueError):
+            continue
+
     return {
         "active_alerts": sum(1 for x in values if x["status"] == "open"),
         "critical": sum(1 for x in values if x["alert"]["severity"] == "critical"),
         "investigating": sum(1 for x in values if x["status"] == "investigating"),
         "resolved": sum(1 for x in values if x["status"] == "resolved"),
         "events_ingested": len(load_events()),
+        "mttd_seconds": round(sum(mttd_values) / len(mttd_values), 2) if mttd_values else None,
+        "mttr_seconds": round(sum(mttr_values) / len(mttr_values), 2) if mttr_values else None,
     }
