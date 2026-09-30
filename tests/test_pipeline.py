@@ -29,3 +29,15 @@ def test_threat_intel_extracts_ioc_and_mitre_mapping():
     assert "198.51.100.10" in result["iocs"]["ipv4"]
     assert "203.0.113.50" in result["iocs"]["ipv4"]
     assert result["mitre"]["technique_id"] == "T1190"
+
+
+
+def test_ioc_extraction_finds_ip_inside_message():
+    event = SecurityEvent(
+        event_id="EVT-TEST-004", source="test", event_type="network",
+        source_ip=None, destination_ip=None,
+        message="Connection from 192.0.2.55 triggered malware detection",
+    )
+    result = process_event(event)
+    assert "192.0.2.55" in result["iocs"]["ipv4"]
+    assert result["mitre"]["technique_id"] == "T1204"
