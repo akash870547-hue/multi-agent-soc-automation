@@ -3,6 +3,7 @@ from pathlib import Path
 
 from soc_automation.models import SecurityEvent
 from soc_automation.pipeline import process_event
+from experiments.baseline import evaluate_baseline
 
 
 def load_dataset(path: str = "experiments/dataset.json") -> list[dict]:
@@ -54,4 +55,4 @@ def evaluate(path: str = "experiments/dataset.json") -> dict:
 
 
 if __name__ == "__main__":
-    print(json.dumps(evaluate(), indent=2))
+    print(json.dumps({"multi_agent": evaluate(), "baseline": evaluate_baseline()}, indent=2))
