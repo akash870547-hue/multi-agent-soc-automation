@@ -25,7 +25,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.12.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.13.0")
 
 _cors_origins = [
     origin.strip()
@@ -189,6 +189,7 @@ def init_db():
             "content_hash": "TEXT",
             "content_checked": "INTEGER DEFAULT 1",
             "findings": "TEXT",
+            "owner_actor": "TEXT",
         }
         for column, definition in migrations.items():
             if column not in columns:
@@ -705,7 +706,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.12.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.13.0"}
 
 
 @app.get("/ready")
@@ -908,7 +909,7 @@ def me(x_api_key: str | None = Header(default=None)):
         "approve": role in {"admin", "responder"},
         "resolve": role in {"admin", "responder"},
         "audit_logs": role == "admin",
-        "website_monitor": role == "admin",
+        "website_monitor": role in {"admin", "responder", "analyst"},
         "monitor_check": role in {"admin", "responder", "analyst"},
     }}
 
@@ -962,6 +963,132 @@ def agents(x_api_key: str | None = Header(default=None)):
         {"name": "Response Agent", "status": "approval_required"},
         {"name": "Reporting Agent", "status": "ready"},
     ]}
+
+
+def _monitor_scope(actor: str, role: str) -> tuple[str, bool]:
+    return actor, role == "admin"
+
+
+def _monitor_rows(actor: str, role: str):
+    with db() as connection:
+        if role == "admin":
+            rows = connection.execute("SELECT * FROM monitor_targets ORDER BY last_checked DESC, name ASC").fetchall()
+        else:
+            rows = connection.execute(
+                "SELECT * FROM monitor_targets WHERE owner_actor=? ORDER BY last_checked DESC, name ASC",
+                (actor,),
+            ).fetchall()
+    output = []
+    for row in rows:
+        item = dict(row)
+        for key in ("security_headers", "tls_info", "redirect_chain", "findings"):
+            try:
+                item[key] = json.loads(item[key]) if item[key] else {}
+            except (TypeError, json.JSONDecodeError):
+                item[key] = item[key] or {}
+        output.append(item)
+    return output
+
+
+def _monitor_target_for_actor(target_id: str, actor: str, role: str):
+    with db() as connection:
+        if role == "admin":
+            row = connection.execute("SELECT * FROM monitor_targets WHERE target_id=?", (target_id,)).fetchone()
+        else:
+            row = connection.execute(
+                "SELECT * FROM monitor_targets WHERE target_id=? AND owner_actor=?",
+                (target_id, actor),
+            ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Monitoring target not found")
+    return row
+
+
+@app.get("/api/monitor/targets")
+def list_monitor_targets(x_api_key: str | None = Header(default=None)):
+    actor, role = require_role(x_api_key, {"admin", "responder", "analyst"})
+    return _monitor_rows(actor, role)
+
+
+@app.post("/api/monitor/targets")
+def create_monitor_target(
+    target: MonitorTarget,
+    x_api_key: str | None = Header(default=None),
+    x_actor: str | None = Header(default=None),
+):
+    actor, role = require_role(x_api_key, {"admin", "responder", "analyst"})
+    safe_public_url(str(target.url))
+    target_id = "mon_" + secrets.token_hex(8)
+    name = (target.name or "").strip()[:100] or str(target.url)
+    with db() as connection:
+        try:
+            connection.execute(
+                """INSERT INTO monitor_targets
+                   (target_id,url,name,status,owner_actor)
+                   VALUES (?,?,?,?,?)""",
+                (target_id, str(target.url), name, "unknown", x_actor or actor),
+            )
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=409, detail="This website is already being monitored")
+    audit("website_monitor_created", target_id, x_actor or actor)
+    result = check_target(target_id, str(target.url), name=name, actor=x_actor or actor)
+    result["owner_actor"] = x_actor or actor
+    return result
+
+
+@app.post("/api/monitor/targets/{target_id}/check")
+def run_monitor_target(
+    target_id: str,
+    x_api_key: str | None = Header(default=None),
+    x_actor: str | None = Header(default=None),
+):
+    actor, role = require_role(x_api_key, {"admin", "responder", "analyst"})
+    row = _monitor_target_for_actor(target_id, actor, role)
+    result = check_target(target_id, row["url"], row["name"], actor=x_actor or actor)
+    result["owner_actor"] = row["owner_actor"]
+    return result
+
+
+@app.get("/api/monitor/targets/{target_id}/history")
+def monitor_history(
+    target_id: str,
+    limit: int = 50,
+    x_api_key: str | None = Header(default=None),
+):
+    actor, role = require_role(x_api_key, {"admin", "responder", "analyst"})
+    _monitor_target_for_actor(target_id, actor, role)
+    limit = max(1, min(limit, 200))
+    with db() as connection:
+        rows = connection.execute(
+            """SELECT checked_at,status,status_code,response_ms,findings
+               FROM monitor_checks WHERE target_id=?
+               ORDER BY id DESC LIMIT ?""",
+            (target_id, limit),
+        ).fetchall()
+    output=[]
+    for row in rows:
+        item=dict(row)
+        try:
+            item["findings"]=json.loads(item["findings"]) if item["findings"] else []
+        except (TypeError, json.JSONDecodeError):
+            item["findings"]=[]
+        output.append(item)
+    return output
+
+
+@app.delete("/api/monitor/targets/{target_id}")
+def remove_monitor_target(
+    target_id: str,
+    x_api_key: str | None = Header(default=None),
+    x_actor: str | None = Header(default=None),
+):
+    actor, role = require_role(x_api_key, {"admin", "responder", "analyst"})
+    row = _monitor_target_for_actor(target_id, actor, role)
+    with db() as connection:
+        connection.execute("DELETE FROM monitor_checks WHERE target_id=?", (target_id,))
+        connection.execute("DELETE FROM monitor_targets WHERE target_id=?", (target_id,))
+    audit("website_monitor_removed", target_id, x_actor or actor)
+    return {"target_id": target_id, "removed": True}
 
 
 @app.get("/api/incidents")
