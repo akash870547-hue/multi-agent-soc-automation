@@ -86,7 +86,9 @@ Useful endpoints:
 - `POST /api/events` - ingest and process a security event
 - `POST /api/incidents/{incident_id}/approve` - human approval gate
 - `POST /api/incidents/{incident_id}/acknowledge` - acknowledge an incident
-- `POST /api/incidents/{incident_id}/resolve` - resolve an incident\n- `GET /api/threat-intel/{indicator}` - optional IOC enrichment\n- `GET /api/audit-logs` - recent auditable state-changing actions
+- `POST /api/incidents/{incident_id}/resolve` - resolve an incident
+- `GET /api/threat-intel/{indicator}` - optional IOC enrichment
+- `GET /api/audit-logs` - recent auditable state-changing actions
 
 ### Optional LLM reasoning
 
@@ -147,7 +149,8 @@ pytest
 - [x] Optional API-key authentication
 - [x] Role-based API access and audit authorization
 - [x] Initial MTTD/MTTR experiment dataset and classification evaluation framework
-- [x] Optional threat intelligence provider adapter\n- [x] API audit logging
+- [x] Optional threat intelligence provider adapter
+- [x] API audit logging
 - [x] Production deployment configuration (Docker/Compose + readiness/health checks)
 - [ ] Hosted production backend deployment
 - [x] Production-grade dashboard/API integration
