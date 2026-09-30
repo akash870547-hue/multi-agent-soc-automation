@@ -50,6 +50,25 @@ After GitHub Pages is enabled for the repository, the dashboard will be availabl
 
 The dashboard is designed as the presentation layer for the project. The backend and agent pipeline remain in the Python package.
 
+## API backend
+
+Run the SOC API locally:
+
+```bash
+uvicorn api:app --reload
+```
+
+Useful endpoints:
+
+- `GET /health` - service health
+- `GET /api/agents` - agent status
+- `GET /api/incidents` - incident list
+- `GET /api/metrics` - SOC metrics
+- `POST /api/events` - ingest and process a security event
+- `POST /api/incidents/{incident_id}/approve` - human approval gate
+
+The public GitHub Pages dashboard runs in demo mode by default. To connect it to a running API, open the dashboard with an `api` query parameter, for example `?api=http://localhost:8000`.
+
 ## Test
 
 ```bash
@@ -62,11 +81,11 @@ pytest
 - [x] Rule-based alert detection
 - [x] Initial multi-agent orchestration
 - [x] SOC dashboard prototype
-- [ ] Threat Intelligence Agent
-- [ ] IOC enrichment
-- [ ] MITRE ATT&CK mapping
-- [ ] Event correlation engine
-- [ ] Governance and approval workflow
+- [x] Threat Intelligence Agent
+- [x] IOC enrichment
+- [x] MITRE ATT&CK mapping
+- [x] Initial event correlation
+- [x] Governance and human approval workflow
 - [ ] LLM reasoning layer
 - [ ] API and persistent incident store
 - [ ] MTTD/MTTR experiment framework
