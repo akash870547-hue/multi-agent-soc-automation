@@ -84,7 +84,7 @@
   <div class="rounded-xl border border-slate-800 bg-slate-900 p-6 lg:col-span-2">
     <div class="flex items-center justify-between">
       <div><h2 class="text-lg font-semibold">Workflow Explained</h2><p class="mt-1 text-xs text-slate-500">What each stage means in a real SOC pipeline</p></div>
-      <span id="explainProgress" class="text-xs text-slate-500">0 / 9</span>
+      <span id="explainProgress" class="text-xs text-slate-500">0 / 10</span>
     </div>
     <div id="explainCards" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
   </div>
@@ -225,7 +225,8 @@ const attackScenarios=[
 const attackSelect=document.getElementById("attackType");
 attackSelect.innerHTML=attackScenarios.map(s=>'<option value="'+esc(s.key)+'">'+esc(s.title)+' • '+esc(s.id)+'</option>').join("");
 
-function currentScenario(){return attackScenarios.find(s=>s.key===attackSelect.value)||attackScenarios[0];}
+let demoOverrideScenario=null;
+function currentScenario(){return demoOverrideScenario||attackScenarios.find(s=>s.key===attackSelect.value)||attackScenarios[0];}
 
 function logSelectedAttack(){
  const s=currentScenario();
@@ -266,7 +267,7 @@ function updateOutput(){
  document.getElementById("outSeverity").textContent=demoState.index>=3?s.severity:"N/A";
  document.getElementById("outMitre").textContent=demoState.index>=5?s.id:"N/A";
  document.getElementById("outPriority").textContent=demoState.index>=3?"P1":"N/A";
- document.getElementById("outApproval").textContent=demoState.index>=8?"APPROVED":"Pending";
+ document.getElementById("outApproval").textContent=demoState.index>=9?"APPROVED":demoState.index===8?"AWAITING APPROVAL":"Pending";
  document.getElementById("outResponse").textContent=demoState.index>=9?"SIMULATED":"Not executed";
 }
 
@@ -275,7 +276,7 @@ function renderStage(){
  renderFlow(); renderExplainCards(); updateOutput();
  if(i<0){
    document.getElementById("currentStageTitle").textContent="Ready to start";
-   document.getElementById("currentStageExplain").textContent="Select an attack and click Run Full Demo. The workflow will move through nine logical SOC stages.";
+   document.getElementById("currentStageExplain").textContent="Select an attack and click Run Full Demo. The workflow will move through ten logical SOC stages.";
    document.getElementById("stageBadge").textContent="IDLE";
    document.getElementById("stageBody").innerHTML="<div class='rounded-lg border border-dashed border-slate-800 p-10 text-center text-sm text-slate-500'>Your first simulated security event will appear here.</div>";
    document.getElementById("streamState").textContent="Waiting";
