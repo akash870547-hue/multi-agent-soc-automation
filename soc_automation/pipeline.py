@@ -2,6 +2,7 @@ import json
 from .agents import InvestigationAgent, ReportingAgent, ResponseAgent, ThreatIntelligenceAgent, TriageAgent
 from .detection import detect
 from .models import Incident, SecurityEvent
+from .reasoning import ReasoningEngine
 
 
 def process_event(event: SecurityEvent) -> dict | None:
@@ -13,6 +14,7 @@ def process_event(event: SecurityEvent) -> dict | None:
     incident.findings.extend(ThreatIntelligenceAgent().run(event, incident))
     incident.findings.extend(InvestigationAgent().run(incident))
     incident.recommendations.extend(ResponseAgent().run(incident))
+    incident.reasoning = ReasoningEngine().analyze(incident)
     return ReportingAgent().run(incident)
 
 
