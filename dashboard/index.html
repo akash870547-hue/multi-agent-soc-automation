@@ -55,14 +55,14 @@
 </main>
 <script>
 const params=new URLSearchParams(location.search);
-const API_BASE=params.get("api") || "";
+const API_BASE=(params.get("api") || "https://multi-agent-soc-api.onrender.com").replace(/\/$/,"");
 const API_HEADERS=()=>{const key=localStorage.getItem("soc_api_key") || "";return key?{"X-API-Key":key}:{};};
 function updateAuthStatus(ok=null){
  const el=document.getElementById("authStatus"), key=localStorage.getItem("soc_api_key")||"";
  el.textContent=!key?"Not configured":ok===true?"Authenticated":"Key saved";
  el.className="rounded-full border px-3 py-1 text-xs "+(!key?"border-slate-700 text-slate-400":ok===true?"border-emerald-500/30 bg-emerald-500/10 text-emerald-400":"border-amber-500/30 bg-amber-500/10 text-amber-400");
 }
-async function connectApi(){if(!API_BASE){document.getElementById("notice").textContent="API URL missing. Open the dashboard with ?api=https://your-api-host";return}try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/me",{headers:{...API_HEADERS()}});if(!r.ok)throw new Error("Invalid or missing API key");const d=await r.json();updateAuthStatus(true);applyPermissions(d);document.getElementById("notice").textContent="Connected as "+d.role+".";if(d.role==="admin")loadKeys()}catch(e){updateAuthStatus(false);document.getElementById("notice").textContent=e.message}}
+async function connectApi(){\n const input=document.getElementById("apiKey");\n const key=input.value.trim();\n if(!key){updateAuthStatus(false);document.getElementById("notice").textContent="Enter the bootstrap/admin API key first.";return;}\n localStorage.setItem("soc_api_key",key);\n try{\n  const r=await fetch(API_BASE+"/api/me",{headers:{...API_HEADERS()}});\n  const body=await r.json().catch(()=>({}));\n  if(!r.ok)throw new Error(body.detail||("Authentication failed (HTTP "+r.status+")"));\n  updateAuthStatus(true);\n  applyPermissions(body);\n  document.getElementById("notice").textContent="Connected as "+body.role+".";\n  loadLive();\n }catch(e){updateAuthStatus(false);document.getElementById("notice").textContent=e.message;}}
 function applyPermissions(d){document.getElementById("roleBadge").textContent=(d.role||"unknown").toUpperCase();const p=d.permissions||{};for(const [id,v] of [["permIngest",p.ingest],["permAck",p.acknowledge],["permApprove",p.approve],["permResolve",p.resolve],["permMonitor",p.website_monitor],["permAudit",p.audit_logs]])document.getElementById(id).textContent=v?"YES":"NO";if(p.audit_logs){document.getElementById("adminConsole").classList.remove("hidden");document.getElementById("keyManager").classList.remove("hidden");loadAuditLogs();loadKeys()}}
 function clearApiKey(){localStorage.removeItem("soc_api_key");document.getElementById("apiKey").value="";updateAuthStatus(false);document.getElementById("notice").textContent="API key cleared from this browser."}
 let localIncidents=[];
@@ -133,9 +133,20 @@ document.getElementById("apiKey").addEventListener("change",e=>{localStorage.set
 updateAuthStatus();\nasync function ingest(){
  const message=document.getElementById("message").value,sourceIp=document.getElementById("sourceIp").value,destIp=document.getElementById("destIp").value;
  const event={event_id:"EVT-"+Date.now(),source:"dashboard",event_type:"security_event",source_ip:sourceIp,destination_ip:destIp,message};
- if(!API_BASE){document.getElementById("notice").textContent="Production API is not configured. Add ?api=https://your-api-host to the dashboard URL.";return;} try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/events",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify(event)});if(!r.ok)throw new Error("API "+r.status);const d=await r.json();if(d.incident)localIncidents.push(d.incident);document.getElementById("mode").textContent="LIVE API";document.getElementById("notice").textContent="Event processed by FastAPI backend.";renderIncidents(localIncidents);if(d.incident)showIncident(d.incident.incident_id);return}catch(e){document.getElementById("notice").textContent="API unavailable, using local demo engine.";}}
- const incident=localProcess(message,sourceIp,destIp);if(incident)localIncidents.push(incident);document.getElementById("notice").textContent=incident?"Event detected and triaged in demo engine.":"No matching detection rule.";renderIncidents(localIncidents);if(incident)showIncident(incident.incident_id);
+ if(!API_BASE){document.getElementById("notice").textContent="Production API is not configured.";return;}
+ if(!localStorage.getItem("soc_api_key")){document.getElementById("notice").textContent="Connect with a valid API key first.";return;}
+ try{
+  const r=await fetch(API_BASE+"/api/events",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify(event)});
+  const body=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(body.detail||("API "+r.status));
+  if(body.incident)localIncidents.push(body.incident);
+  document.getElementById("mode").textContent="LIVE API";
+  document.getElementById("notice").textContent="Event processed by FastAPI backend.";
+  renderIncidents(localIncidents);
+  if(body.incident)showIncident(body.incident.incident_id);
+ }catch(e){document.getElementById("notice").textContent="Event ingestion failed: "+e.message;}
 }
+
 function simulate(){document.getElementById("message").value="SQL injection detected from 203.0.113.50";document.getElementById("sourceIp").value="203.0.113.50";ingest()}
 
 async function loadMe(){
@@ -197,7 +208,7 @@ async function loadLive(){
  if(!API_BASE){renderAgents();renderIncidents([]);return;}
  try{
   const base=API_BASE.replace(/\/$/,"");
-  const [a,i,m]=await Promise.all([fetch(base+"/api/agents"),fetch(base+"/api/incidents"),fetch(base+"/api/metrics")]);
+  const headers={...API_HEADERS()};\n  if(!headers["X-API-Key"])throw new Error("Authentication required");\n  const [a,i,m]=await Promise.all([fetch(base+"/api/agents",{headers}),fetch(base+"/api/incidents",{headers}),fetch(base+"/api/metrics",{headers})]);
   if(a.status===401||i.status===401||m.status===401){updateAuthStatus(false);throw new Error("Authentication required");}
   if(!a.ok||!i.ok||!m.ok)throw new Error("API unavailable");
   updateAuthStatus(true);
@@ -212,5 +223,6 @@ async function loadLive(){
  }catch(e){renderAgents();renderIncidents([]);document.getElementById("notice").textContent=e.message==="Authentication required"?"API key rejected or missing. Enter a valid key.":"API unavailable, demo mode active.";updateAuthStatus(false);}
 }
 loadLive();
+loadMe();
 </script>
 </body></html>
