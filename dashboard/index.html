@@ -3,61 +3,71 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multi-Agent SOC | Live Demo</title>
+<title>Multi-Agent SOC | Operations Dashboard</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
 <header class="border-b border-slate-800 bg-slate-950/95">
-  <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-    <div><div class="text-xl font-bold">Multi-Agent SOC</div><div class="text-xs text-slate-400">AI-assisted Security Operations Center</div></div>
-    <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">SYSTEM ONLINE</span>
-  </div>
-</header>
+<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+<div><div class="text-xl font-bold">Multi-Agent SOC</div><div class="text-xs text-slate-400">AI-assisted Security Operations Center</div></div>
+<div class="flex items-center gap-3"><span id="mode" class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-400">DEMO MODE</span><span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">● ONLINE</span></div>
+</div></header>
 <main class="mx-auto max-w-7xl px-6 py-8">
-  <section class="mb-8">
-    <h1 class="text-3xl font-bold">Security Operations Dashboard</h1>
-    <p class="mt-2 max-w-3xl text-slate-400">Research implementation of a multi-agent framework for SOC automation and incident response.</p>
-  </section>
-  <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Active Alerts</div><div class="mt-2 text-3xl font-bold">07</div></div>
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Critical</div><div class="mt-2 text-3xl font-bold text-red-400">02</div></div>
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Investigating</div><div class="mt-2 text-3xl font-bold text-amber-400">03</div></div>
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Resolved</div><div class="mt-2 text-3xl font-bold text-emerald-400">21</div></div>
-  </section>
-  <section class="mt-8 grid gap-6 lg:grid-cols-3">
-    <div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Recent Incidents</h2><span class="text-xs text-slate-500">Demo telemetry</span></div>
-      <div class="mt-5 space-y-3">
-        <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4"><div><div class="font-medium">SQL Injection Attempt</div><div class="text-xs text-slate-500">203.0.113.50 → Web Server</div></div><span class="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">HIGH</span></div>
-        <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4"><div><div class="font-medium">Suspicious Authentication Failures</div><div class="text-xs text-slate-500">198.51.100.24 → VPN Gateway</div></div><span class="rounded-full bg-amber-500/10 px-3 py-1 text-xs text-amber-400">MEDIUM</span></div>
-        <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4"><div><div class="font-medium">Potential Malware Activity</div><div class="text-xs text-slate-500">Endpoint telemetry</div></div><span class="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">CRITICAL</span></div>
-      </div>
-    </div>
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <h2 class="text-lg font-semibold">Agent Status</h2>
-      <div class="mt-5 space-y-4">
-        <div class="flex justify-between"><span>Triage Agent</span><span class="text-emerald-400">● Ready</span></div>
-        <div class="flex justify-between"><span>Threat Intel</span><span class="text-amber-400">● Building</span></div>
-        <div class="flex justify-between"><span>Investigation</span><span class="text-emerald-400">● Ready</span></div>
-        <div class="flex justify-between"><span>Response</span><span class="emerald-400 text-emerald-400">● Approval</span></div>
-        <div class="flex justify-between"><span>Reporting</span><span class="text-emerald-400">● Ready</span></div>
-      </div>
-    </div>
-  </section>
-  <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
-    <h2 class="text-lg font-semibold">Incident Pipeline</h2>
-    <div class="mt-5 grid gap-3 text-center sm:grid-cols-5">
-      <div class="rounded-lg bg-slate-950 p-4"><b>01</b><div class="mt-1 text-xs text-slate-400">Ingest</div></div>
-      <div class="rounded-lg bg-slate-950 p-4"><b>02</b><div class="mt-1 text-xs text-slate-400">Detect</div></div>
-      <div class="rounded-lg bg-slate-950 p-4"><b>03</b><div class="mt-1 text-xs text-slate-400">Triage</div></div>
-      <div class="rounded-lg bg-slate-950 p-4"><b>04</b><div class="mt-1 text-xs text-slate-400">Investigate</div></div>
-      <div class="rounded-lg bg-slate-950 p-4"><b>05</b><div class="mt-1 text-xs text-slate-400">Human-approved Response</div></div>
-    </div>
-  </section>
-  <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-500">
-    Prototype dashboard • Research implementation • <a class="text-sky-400 hover:underline" href="https://github.com/akash870547-hue/multi-agent-soc-automation">View source on GitHub</a>
-  </footer>
+<section class="mb-8"><h1 class="text-3xl font-bold">Security Operations Dashboard</h1><p class="mt-2 max-w-3xl text-slate-400">Research implementation of a multi-agent framework for SOC automation and incident response.</p></section>
+<section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+<div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Active Alerts</div><div id="m-active" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Critical</div><div id="m-critical" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Investigating</div><div id="m-investigating" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Resolved</div><div id="m-resolved" class="mt-2 text-3xl font-bold">0</div></div>
+</section>
+<section class="mt-8 grid gap-6 lg:grid-cols-3">
+<div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-6">
+<div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Recent Incidents</h2><button onclick="simulate()" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400">Simulate Attack</button></div>
+<div id="incidents" class="mt-5 space-y-3"></div>
+</div>
+<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Agent Status</h2><div id="agents" class="mt-5 space-y-4"></div></div>
+</section>
+<section class="mt-6 grid gap-6 lg:grid-cols-2">
+<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Detail</h2><pre id="detail" class="mt-4 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-300">Select an incident.</pre></div>
+<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Event Ingestion</h2>
+<div class="mt-4 space-y-3"><input id="message" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="SQL injection detected from 198.51.100.10"><div class="grid gap-3 sm:grid-cols-2"><input id="sourceIp" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="198.51.100.10"><input id="destIp" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="10.0.0.20"></div><button onclick="ingest()" class="w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm font-semibold hover:bg-slate-700">Ingest Event</button><p id="notice" class="text-xs text-slate-500"></p></div></div>
+</section>
+<section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Pipeline</h2><div class="mt-5 grid gap-3 text-center sm:grid-cols-5"><div class="rounded-lg bg-slate-950 p-4"><b>01</b><div class="mt-1 text-xs text-slate-400">Ingest</div></div><div class="rounded-lg bg-slate-950 p-4"><b>02</b><div class="mt-1 text-xs text-slate-400">Detect</div></div><div class="rounded-lg bg-slate-950 p-4"><b>03</b><div class="mt-1 text-xs text-slate-400">Triage</div></div><div class="rounded-lg bg-slate-950 p-4"><b>04</b><div class="mt-1 text-xs text-slate-400">Threat Intel</div></div><div class="rounded-lg bg-slate-950 p-4"><b>05</b><div class="mt-1 text-xs text-slate-400">Investigate / Human-approved Response</div></div></div></section>
+<footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-500">Prototype presentation layer • Backend API supported • <a class="text-sky-400 hover:underline" href="https://github.com/akash870547-hue/multi-agent-soc-automation">View source on GitHub</a></footer>
 </main>
-</body>
-</html>
+<script>
+const params=new URLSearchParams(location.search);
+const API_BASE=params.get("api") || "";
+let localIncidents=[];
+const demoAgents=[
+ {name:"Triage Agent",status:"ready"},{name:"Threat Intelligence Agent",status:"ready"},
+ {name:"Investigation Agent",status:"ready"},{name:"Response Agent",status:"approval_required"},{name:"Reporting Agent",status:"ready"}
+];
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function renderAgents(a=demoAgents){document.getElementById("agents").innerHTML=a.map(x=>`<div class="flex justify-between"><span>${esc(x.name)}</span><span class="text-emerald-400">● ${esc(x.status)}</span></div>`).join("")}
+function renderIncidents(list){
+ document.getElementById("incidents").innerHTML=list.length?list.slice().reverse().map((x,i)=>`<button onclick="showIncident('${esc(x.incident_id)}')" class="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4 text-left hover:border-slate-600"><div><div class="font-medium">${esc(x.alert.title)}</div><div class="text-xs text-slate-500">${esc((x.iocs?.ipv4||[]).join(", "))}</div></div><span class="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">${esc(x.alert.severity.toUpperCase())}</span></button>`).join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">No incidents yet. Use Simulate Attack.</div>';
+ document.getElementById("m-active").textContent=list.filter(x=>x.status==="open").length;
+ document.getElementById("m-critical").textContent=list.filter(x=>x.alert.severity==="critical").length;
+ document.getElementById("m-investigating").textContent=list.filter(x=>x.status==="investigating").length;
+ document.getElementById("m-resolved").textContent=list.filter(x=>x.status==="resolved").length;
+}
+function showIncident(id){const x=localIncidents.find(i=>i.incident_id===id);if(x)document.getElementById("detail").textContent=JSON.stringify(x,null,2)}
+function localProcess(message,sourceIp,destIp){
+ let severity=null,reason="",technique=null,name=null;
+ const m=message.toLowerCase();
+ if(m.includes("sql injection")){severity="high";reason="Potential SQL injection activity detected";technique="T1190";name="Exploit Public-Facing Application"}
+ else if(m.includes("ransomware")){severity="critical";reason="Potential ransomware activity detected";technique="T1486";name="Data Encrypted for Impact"}
+ else if(m.includes("malware")){severity="critical";reason="Potential malware activity detected";technique="T1204";name="User Execution"}
+ else if(m.includes("failed login")){severity="medium";reason="Repeated or suspicious authentication failure";technique="T1110";name="Brute Force"}
+ if(!severity)return null;
+ const ips=[...new Set([sourceIp,destIp,...(message.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)||[])].filter(Boolean))];
+ return {incident_id:"INC-LOCAL-"+Date.now(),alert:{alert_id:"ALT-LOCAL-"+Date.now(),event_id:"EVT-LOCAL-"+Date.now(),title:"Detected security event",severity,confidence:.85,reason},status:"open",findings:[reason,"Detection confidence: 85%",`Mapped to MITRE ATT&CK ${technique}: ${name}.`],recommendations:["Preserve relevant logs and evidence.","Validate the finding with a human analyst before containment."],iocs:{ipv4:ips,sha256:[]},mitre:{technique_id:technique,technique_name:name}};
+}
+async function ingest(){
+ const message=document.getElementById("message").value,sourceIp=document.getElementById("sourceIp").value,destIp=document.getElementById("destIp").value;
+ const event={event_id:"EVT-"+Date.now(),source:"dashboard",event_type:"security_event",source_ip:sourceIp,destination_ip:destIp,message};
+ if(API_BASE){try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/events",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(event)});if(!r.ok)throw new Error("API "+r.status);const d=await r.json();if(d.incident)localIncidents.push(d.incident);document.getElementById("mode").textContent="LIVE API";document.getElementById("notice").textContent="Event processed by FastAPI backend.";renderIncidents(localIncidents);if(d.incident)showIncident(d.incident.incident_id);return}catch(e){document.getElementById("notice").textContent="API unavailable, using local demo engine.";}}
+ const incident=localProcess(message,sourceIp,destIp);if(incident)localIncidents.push(incident);document.getElementById("notice").textContent=incident?"Event detected and triaged in demo engine.":"No matching detection rule.";renderIncidents(localIncidents);if(incident)showIncident(incident.incident_id);
+}
+function simulate(){document.getElementById("message").value="SQL injection detected from 203.0.113.50";document.getElementById("sourceIp").value="203.0.113.50";ingest()}
+renderAgents();renderIncidents([]);
+</script>
+</body></html>
