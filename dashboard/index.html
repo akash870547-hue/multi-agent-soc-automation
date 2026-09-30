@@ -1,107 +1,129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multi-Agent SOC | Public Test</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Agent SOC | Sign in</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
-<header class="border-b border-slate-800 bg-slate-950/95">
-  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-    <div>
-      <div class="text-xl font-bold">Multi-Agent SOC</div>
-      <div class="text-xs text-slate-400">Public Product Test</div>
+<div class="min-h-screen flex items-center justify-center px-6">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="text-3xl font-bold">Multi-Agent SOC</div>
+      <div class="mt-2 text-sm text-slate-400">Secure Operations Console</div>
     </div>
-    <div class="flex items-center gap-3">
-      <span class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-400">PUBLIC TEST</span>
-      <a href="./admin.html" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Admin Console</a>
+
+    <div id="loginCard" class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl font-semibold">Sign in</h1>
+          <p class="mt-1 text-xs text-slate-500">Admin and Analyst accounts</p>
+        </div>
+        <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">AUTHENTICATED</span>
+      </div>
+
+      <form id="loginForm" class="mt-6 space-y-4">
+        <div>
+          <label class="text-sm text-slate-300">Account type</label>
+          <select id="accountType" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm">
+            <option value="admin">Admin</option>
+            <option value="analyst">Analyst</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm text-slate-300">Username</label>
+          <input id="username" autocomplete="username" required class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Enter username">
+        </div>
+
+        <div>
+          <label class="text-sm text-slate-300">Password</label>
+          <input id="password" type="password" autocomplete="current-password" required class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Enter password">
+        </div>
+
+        <button id="loginBtn" type="submit" class="w-full rounded-lg bg-emerald-500 p-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">
+          Sign in
+        </button>
+        <div id="error" class="hidden rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300"></div>
+      </form>
+
+      <div class="mt-6 border-t border-slate-800 pt-5">
+        <div class="text-xs text-slate-500">Need a public demonstration?</div>
+        <a href="./public.html" class="mt-2 inline-flex rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Open Public Test</a>
+      </div>
+
+      <div class="mt-5 rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-500">
+        <div class="font-semibold text-slate-300">Roles</div>
+        <div class="mt-1">Admin: full console + credential management</div>
+        <div>Analyst: operations access without admin credential management</div>
+        <div>Super Admin: reserved for future expansion</div>
+      </div>
     </div>
   </div>
-</header>
-<main class="mx-auto max-w-6xl px-6 py-8">
-  <section class="mb-8">
-    <h1 class="text-3xl font-bold">Try the SOC Workflow</h1>
-    <p class="mt-2 max-w-3xl text-slate-400">
-      Safe product demonstration. This page does not connect to the production SOC backend,
-      store incidents, access API keys, or expose administrative data.
-    </p>
-  </section>
-
-  <section class="grid gap-6 lg:grid-cols-2">
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Security Event Test</h2><span class="text-xs text-slate-500">Local simulation</span></div>
-      <div class="mt-4 space-y-3">
-        <select id="attackType" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm">
-          <option value="sql">SQL Injection</option>
-          <option value="ransomware">Ransomware Activity</option>
-          <option value="malware">Malware Detection</option>
-          <option value="login">Suspicious Login</option>
-        </select>
-        <button onclick="runAttackTest()" class="w-full rounded-lg bg-sky-500 p-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Run Test</button>
-      </div>
-      <div id="attackResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
-    </div>
-
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Web Monitoring Test</h2><span class="text-xs text-slate-500">Safe simulation</span></div>
-      <div class="mt-4 space-y-3">
-        <input id="webTarget" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com" value="https://example.com">
-        <button onclick="runWebTest()" class="w-full rounded-lg bg-emerald-500 p-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Test Monitoring Workflow</button>
-      </div>
-      <div id="webResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
-    </div>
-  </section>
-
-  <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
-    <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Demo Result</h2><span id="demoStatus" class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">No test run</span></div>
-    <div class="mt-4 grid gap-3 sm:grid-cols-4">
-      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Severity</div><div id="demoSeverity" class="mt-1 font-semibold">N/A</div></div>
-      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">MITRE</div><div id="demoMitre" class="mt-1 font-semibold">N/A</div></div>
-      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Detection</div><div id="demoDetection" class="mt-1 font-semibold">N/A</div></div>
-      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Response</div><div id="demoResponse" class="mt-1 font-semibold">Human approval</div></div>
-    </div>
-  </section>
-
-  <section class="mt-6 rounded-xl border border-amber-500/20 bg-slate-900 p-6">
-    <h2 class="text-lg font-semibold">Production Admin</h2>
-    <p class="mt-2 text-sm text-slate-400">Real incidents, monitored websites, API key management, audit logs, approvals, and monitoring history are available only in the authenticated Admin Console.</p>
-    <a href="./admin.html" class="mt-4 inline-flex rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-white">Open Admin Console</a>
-  </section>
-
-  <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-600">Public demonstration only • No production backend access</footer>
-</main>
+</div>
 
 <script>
-const attackScenarios = {
-  sql:{title:"Detected: SQL injection",severity:"HIGH",mitre:"T1190",detection:"Potential SQL injection activity detected",response:"Preserve evidence and validate before containment"},
-  ransomware:{title:"Detected: ransomware activity",severity:"CRITICAL",mitre:"T1486",detection:"Potential ransomware activity detected",response:"Human-approved containment workflow"},
-  malware:{title:"Detected: malware",severity:"CRITICAL",mitre:"T1204",detection:"Potential malware activity detected",response:"Human-approved response required"},
-  login:{title:"Detected: suspicious login",severity:"MEDIUM",mitre:"T1110",detection:"Repeated or suspicious authentication failure",response:"Investigate authentication activity"}
-};
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function showDemo(s){
- document.getElementById("demoStatus").textContent="Test completed";
- document.getElementById("demoStatus").className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400";
- document.getElementById("demoSeverity").textContent=s.severity;
- document.getElementById("demoMitre").textContent=s.mitre;
- document.getElementById("demoDetection").textContent="Triggered";
- document.getElementById("demoResponse").textContent=s.response;
+const API_BASE = "https://multi-agent-soc-api.onrender.com";
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
-function runAttackTest(){
- const s=attackScenarios[document.getElementById("attackType").value], box=document.getElementById("attackResult");
- box.classList.remove("hidden");
- box.innerHTML="<div class='font-semibold'>"+esc(s.title)+"</div><div class='mt-2 text-xs text-slate-400'>"+esc(s.detection)+"</div><div class='mt-3 grid gap-2 sm:grid-cols-3 text-xs'><div class='rounded bg-slate-900 p-2'>Severity: "+esc(s.severity)+"</div><div class='rounded bg-slate-900 p-2'>MITRE: "+esc(s.mitre)+"</div><div class='rounded bg-slate-900 p-2'>Governance: Human approval</div></div>";
- showDemo(s);
+
+function setError(message){
+  const box=document.getElementById("error");
+  box.textContent=message;
+  box.classList.toggle("hidden",!message);
 }
-function runWebTest(){
- const target=document.getElementById("webTarget").value.trim(), box=document.getElementById("webResult");
- if(!/^https:\/\//i.test(target)){box.classList.remove("hidden");box.innerHTML="<div class='text-amber-300'>Use a public HTTPS URL for the demonstration.</div>";return;}
- const d={status:"UP",http:200,response:"142 ms",tls:"Valid",headers:"6/6 present",redirect:"Secure",content:"Fingerprint recorded"};
- box.classList.remove("hidden");
- box.innerHTML="<div class='font-semibold'>"+esc(target)+"</div><div class='mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4'><div class='rounded bg-slate-900 p-2'>Status: "+d.status+"</div><div class='rounded bg-slate-900 p-2'>HTTP: "+d.http+"</div><div class='rounded bg-slate-900 p-2'>TLS: "+d.tls+"</div><div class='rounded bg-slate-900 p-2'>Response: "+d.response+"</div></div><div class='mt-3 text-xs text-slate-500'>Simulated result only. The public page never sends this target to the production monitoring backend.</div>";
- document.getElementById("demoStatus").textContent="Web test completed";
+
+async function checkExistingSession(){
+  const token=localStorage.getItem("soc_api_key");
+  if(!token)return;
+  try{
+    const r=await fetch(API_BASE+"/api/me",{headers:{"X-API-Key":token}});
+    if(r.ok){
+      location.href="./admin.html";
+    }else{
+      localStorage.removeItem("soc_api_key");
+      localStorage.removeItem("soc_user");
+    }
+  }catch(e){}
 }
+
+document.getElementById("loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  setError("");
+  const btn=document.getElementById("loginBtn");
+  btn.disabled=true;
+  btn.textContent="Signing in...";
+  try{
+    const selectedRole=document.getElementById("accountType").value;
+    const username=document.getElementById("username").value.trim();
+    const password=document.getElementById("password").value;
+
+    const r=await fetch(API_BASE+"/api/auth/login",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username,password})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.detail||("Login failed (HTTP "+r.status+")"));
+    if(d.role!==selectedRole){
+      throw new Error("This username belongs to the "+d.role+" role. Select the matching account type.");
+    }
+
+    localStorage.setItem("soc_api_key",d.session_token);
+    localStorage.setItem("soc_user",JSON.stringify({username:d.username,role:d.role}));
+    location.href="./admin.html";
+  }catch(err){
+    setError(err.message);
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Sign in";
+  }
+});
+
+checkExistingSession();
 </script>
 </body>
 </html>
