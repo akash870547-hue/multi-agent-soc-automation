@@ -27,6 +27,7 @@ Security Events → Ingestion → Detection → Correlation → Multi-Agent Anal
 - Measurable MTTD/MTTR improvements
 - Local-first development
 - Provider-agnostic reasoning
+- Optional LLM-assisted reasoning with deterministic fallback
 
 ## Current implementation
 
@@ -84,6 +85,12 @@ Useful endpoints:
 - `POST /api/incidents/{incident_id}/acknowledge` - acknowledge an incident
 - `POST /api/incidents/{incident_id}/resolve` - resolve an incident
 
+### Optional LLM reasoning
+
+The default reasoning engine is deterministic and requires no API key. To enable the optional OpenAI provider, install `requirements-llm.txt`, set `OPENAI_API_KEY`, and set `SOC_REASONING_PROVIDER=openai`. The model can be selected with `SOC_REASONING_MODEL`.
+
+The adapter uses the OpenAI Responses API and keeps response actions behind the existing human approval gate. OpenAI documents the Responses API and current model catalog in its platform documentation. citeturn0search0turn0search1
+
 ### Optional API authentication
 
 Set `SOC_API_KEY` to protect event ingestion and incident state-changing endpoints with the `X-API-Key` header. When `SOC_API_KEY` is not configured, the local development API remains open for the dashboard demo.
@@ -117,7 +124,7 @@ pytest
 - [x] Deterministic reasoning foundation
 - [x] Incident acknowledgement/resolution lifecycle
 - [x] MTTD/MTTR API metrics
-- [ ] Optional LLM reasoning provider
+- [x] Pluggable reasoning provider with optional OpenAI adapter
 - [x] Optional API-key authentication
 - [ ] Role-based access
 - [ ] MTTD/MTTR experiment dataset and evaluation framework
