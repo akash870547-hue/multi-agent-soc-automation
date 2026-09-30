@@ -11,6 +11,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import ssl
 from urllib.parse import urlparse
 from collections import defaultdict, deque
 
@@ -23,7 +24,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.5.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.6.0")
 
 _cors_origins = [
     origin.strip()
@@ -86,7 +87,30 @@ def init_db():
         connection.execute("""CREATE TABLE IF NOT EXISTS monitor_targets (
             target_id TEXT PRIMARY KEY, url TEXT NOT NULL UNIQUE, name TEXT,
             status TEXT NOT NULL, status_code INTEGER, response_ms REAL,
-            last_checked TEXT, last_error TEXT)""")
+            last_checked TEXT, last_error TEXT,
+            security_headers TEXT, tls_info TEXT, redirect_chain TEXT,
+            content_hash TEXT, content_checked INTEGER DEFAULT 1,
+            findings TEXT)""")
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(monitor_targets)").fetchall()}
+        migrations = {
+            "security_headers": "TEXT",
+            "tls_info": "TEXT",
+            "redirect_chain": "TEXT",
+            "content_hash": "TEXT",
+            "content_checked": "INTEGER DEFAULT 1",
+            "findings": "TEXT",
+        }
+        for column, definition in migrations.items():
+            if column not in columns:
+                connection.execute(f"ALTER TABLE monitor_targets ADD COLUMN {column} {definition}")
+        connection.execute("""CREATE TABLE IF NOT EXISTS monitor_checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_id TEXT NOT NULL,
+            checked_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            status_code INTEGER,
+            response_ms REAL,
+            findings TEXT NOT NULL)""")
 
 
 init_db()
@@ -198,61 +222,224 @@ def safe_public_url(url: str) -> None:
             raise HTTPException(status_code=400, detail="Private or local network targets are not allowed")
 
 
+REQUIRED_SECURITY_HEADERS = {
+    "strict-transport-security": "HSTS",
+    "content-security-policy": "CSP",
+    "x-frame-options": "X-Frame-Options",
+    "x-content-type-options": "X-Content-Type-Options",
+    "referrer-policy": "Referrer-Policy",
+    "permissions-policy": "Permissions-Policy",
+}
+
+
+class RedirectTracker(urllib.request.HTTPRedirectHandler):
+    def __init__(self):
+        self.chain = []
+
+    def _record(self, req, fp, code, msg, newurl):
+        self.chain.append({"from": req.full_url, "to": newurl, "status_code": code})
+        return super()._redirect_request(req, fp, code, msg, newurl)
+
+    def http_error_301(self, req, fp, code, msg, headers):
+        return self._record(req, fp, code, msg, headers.get("Location"))
+
+    def http_error_302(self, req, fp, code, msg, headers):
+        return self._record(req, fp, code, msg, headers.get("Location"))
+
+    def http_error_303(self, req, fp, code, msg, headers):
+        return self._record(req, fp, code, msg, headers.get("Location"))
+
+    def http_error_307(self, req, fp, code, msg, headers):
+        return self._record(req, fp, code, msg, headers.get("Location"))
+
+    def http_error_308(self, req, fp, code, msg, headers):
+        return self._record(req, fp, code, msg, headers.get("Location"))
+
+
+def get_tls_info(hostname: str) -> dict:
+    context = ssl.create_default_context()
+    started = time.perf_counter()
+    with socket.create_connection((hostname, 443), timeout=10) as raw_socket:
+        with context.wrap_socket(raw_socket, server_hostname=hostname) as tls_socket:
+            cert = tls_socket.getpeercert()
+            cipher = tls_socket.cipher()
+            version = tls_socket.version()
+    not_after = cert.get("notAfter")
+    expiry = None
+    days = None
+    if not_after:
+        expiry_dt = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+        expiry = expiry_dt.isoformat()
+        days = max(0, (expiry_dt - datetime.now(timezone.utc)).days)
+    return {
+        "valid": True,
+        "expires_at": expiry,
+        "days_to_expiry": days,
+        "tls_version": version,
+        "cipher": cipher[0] if cipher else None,
+        "check_ms": round((time.perf_counter() - started) * 1000, 2),
+    }
+
+
 def check_target(target_id: str, url: str, name: str | None = None, actor: str = "monitor"):
     safe_public_url(url)
     started = time.perf_counter()
     status = "up"
     status_code = None
     error = None
+    final_url = url
+    redirect_tracker = RedirectTracker()
+    headers_snapshot = {}
+    content_hash = None
+    tls_info = {"valid": False, "error": "not checked"}
+    previous = None
+    previous_snapshot = {}
+
+    with db() as connection:
+        row = connection.execute("SELECT * FROM monitor_targets WHERE target_id = ?", (target_id,)).fetchone()
+        if row:
+            previous = row["status"]
+            for key in ("security_headers", "tls_info", "redirect_chain", "content_hash", "findings"):
+                try:
+                    previous_snapshot[key] = json.loads(row[key]) if row[key] else None
+                except (TypeError, json.JSONDecodeError):
+                    previous_snapshot[key] = row[key]
+
     try:
-        request = urllib.request.Request(url, headers={"User-Agent": "Multi-Agent-SOC-Monitor/0.5"})
-        with urllib.request.urlopen(request, timeout=10) as response:
+        request = urllib.request.Request(url, headers={"User-Agent": "Multi-Agent-SOC-Monitor/0.6"})
+        opener = urllib.request.build_opener(redirect_tracker)
+        with opener.open(request, timeout=10) as response:
             status_code = response.status
-            response.read(64)
-            if status_code >= 400:
+            final_url = response.geturl()
+            raw_body = response.read(1024 * 1024)
+            content_hash = hashlib.sha256(raw_body).hexdigest()
+            headers_snapshot = {str(k).lower(): str(v) for k, v in response.headers.items()}
+            if status_code >= 500:
+                status = "down"
+            elif status_code >= 400:
                 status = "degraded"
     except urllib.error.HTTPError as exc:
         status_code = exc.code
-        status = "degraded" if exc.code < 500 else "down"
+        final_url = exc.geturl() or url
+        headers_snapshot = {str(k).lower(): str(v) for k, v in exc.headers.items()}
         error = str(exc)
+        status = "degraded" if exc.code < 500 else "down"
     except Exception as exc:
         status = "down"
         error = str(exc)
+
+    hostname = urlparse(url).hostname
+    try:
+        tls_info = get_tls_info(hostname) if hostname else {"valid": False, "error": "missing hostname"}
+    except Exception as exc:
+        tls_info = {"valid": False, "error": str(exc)}
+
     response_ms = round((time.perf_counter() - started) * 1000, 2)
-    previous = None
+    redirect_chain = redirect_tracker.chain
+    missing_headers = [label for header, label in REQUIRED_SECURITY_HEADERS.items() if header not in headers_snapshot]
+    weak_security_headers = []
+    if headers_snapshot.get("x-frame-options", "").upper() == "ALLOWALL":
+        weak_security_headers.append("X-Frame-Options allows framing")
+    if "strict-transport-security" in headers_snapshot and "max-age=" not in headers_snapshot["strict-transport-security"].lower():
+        weak_security_headers.append("HSTS has no max-age directive")
+    redirect_findings = []
+    if any((item.get("to") or "").lower().startswith("http://") for item in redirect_chain):
+        redirect_findings.append("Redirect chain contains an HTTP URL")
+    if final_url.lower().startswith("http://"):
+        redirect_findings.append("Final destination is HTTP")
+    tls_findings = []
+    if not tls_info.get("valid"):
+        tls_findings.append("TLS certificate validation failed")
+    elif tls_info.get("days_to_expiry") is not None:
+        if tls_info["days_to_expiry"] <= 30:
+            tls_findings.append(f"TLS certificate expires in {tls_info['days_to_expiry']} day(s)")
+    findings = []
+    findings.extend(f"Missing security header: {item}" for item in missing_headers)
+    findings.extend(weak_security_headers)
+    findings.extend(redirect_findings)
+    findings.extend(tls_findings)
+    if error:
+        findings.append(f"Availability error: {error}")
+
+    previous_headers = previous_snapshot.get("security_headers") or {}
+    previous_tls = previous_snapshot.get("tls_info") or {}
+    previous_hash = previous_snapshot.get("content_hash")
+    alerts = []
+
+    if previous and previous != status and status in {"down", "degraded"}:
+        alerts.append(("availability", f"Website monitor: {name or url} changed from {previous} to {status}. HTTP={status_code}."))
+    if previous_headers:
+        newly_missing = [label for header, label in REQUIRED_SECURITY_HEADERS.items()
+                         if header in previous_headers and header not in headers_snapshot]
+        for label in newly_missing:
+            alerts.append(("security_header", f"Website monitor: security header {label} was removed from {name or url}."))
+    if previous_tls.get("days_to_expiry") is not None and tls_info.get("days_to_expiry") is not None:
+        before = previous_tls["days_to_expiry"]
+        after = tls_info["days_to_expiry"]
+        if before > 30 >= after:
+            alerts.append(("tls", f"Website monitor: TLS certificate for {name or url} expires in {after} day(s)."))
+    if previous_hash and content_hash and previous_hash != content_hash:
+        alerts.append(("content", f"Website monitor: monitored content changed for {name or url}. SHA-256={content_hash}."))
+    previous_findings = previous_snapshot.get("findings") or []
+    if redirect_findings and redirect_findings != previous_findings:
+        alerts.append(("redirect", f"Website monitor: redirect security finding changed for {name or url}."))
+
     with db() as connection:
-        row = connection.execute(
-            "SELECT status FROM monitor_targets WHERE target_id = ?", (target_id,)
-        ).fetchone()
-        previous = row["status"] if row else None
         connection.execute(
             """UPDATE monitor_targets SET status=?, status_code=?, response_ms=?,
-               last_checked=?, last_error=?, name=? WHERE target_id=?""",
-            (status, status_code, response_ms, iso_now(), error, name, target_id),
+               last_checked=?, last_error=?, security_headers=?, tls_info=?,
+               redirect_chain=?, content_hash=?, findings=? WHERE target_id=?""",
+            (status, status_code, response_ms, iso_now(), error,
+             json.dumps(headers_snapshot), json.dumps(tls_info),
+             json.dumps(redirect_chain), content_hash, json.dumps(findings), target_id),
         )
-    if previous and previous != status and status in {"down", "degraded"}:
+        connection.execute(
+            """INSERT INTO monitor_checks
+               (target_id,checked_at,status,status_code,response_ms,findings)
+               VALUES (?,?,?,?,?,?)""",
+            (target_id, iso_now(), status, status_code, response_ms, json.dumps(findings)),
+        )
+
+    for alert_type, message in alerts[:5]:
         event = SecurityEvent(
-            event_id=f"WEB-{int(time.time()*1000)}",
+            event_id=f"WEB-{alert_type.upper()}-{int(time.time()*1000)}",
             source="website-monitor",
-            event_type="availability",
+            event_type="web_security_monitor",
             source_ip="0.0.0.0",
             destination_ip="0.0.0.0",
-            message=f"Website monitor: {name or url} changed from {previous} to {status}. HTTP={status_code}.",
+            message=message,
         )
         save_event(event)
         result = process_event(event)
         if result:
-            result["findings"].append(f"Website monitoring detected a state transition for {url}.")
+            result["findings"].append(f"Website monitoring detected {alert_type} anomaly for {url}.")
+            result["findings"].extend(findings[:6])
             save_incident(result)
-        audit("website_state_change", target_id, actor)
-    return {"target_id": target_id, "url": url, "name": name, "status": status,
-            "status_code": status_code, "response_ms": response_ms,
-            "last_checked": iso_now(), "last_error": error}
+        audit(f"website_{alert_type}_change", target_id, actor)
+
+    return {
+        "target_id": target_id,
+        "url": url,
+        "name": name,
+        "status": status,
+        "status_code": status_code,
+        "response_ms": response_ms,
+        "last_checked": iso_now(),
+        "last_error": error,
+        "final_url": final_url,
+        "security_headers": headers_snapshot,
+        "missing_security_headers": missing_headers,
+        "tls": tls_info,
+        "redirect_chain": redirect_chain,
+        "content_hash": content_hash,
+        "findings": findings,
+        "alerts_generated": [item[0] for item in alerts[:5]],
+    }
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.5.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.6.0"}
 
 
 @app.get("/ready")
@@ -420,7 +607,7 @@ def add_monitor_target(target: MonitorTarget, x_api_key: str | None = Header(def
     actor, _ = require_role(x_api_key, {"admin"})
     url = str(target.url)
     safe_public_url(url)
-    target_id = f"WEB-{abs(hash(url))}"
+    target_id = "WEB-" + hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
     try:
         with db() as connection:
             connection.execute(
@@ -431,6 +618,40 @@ def add_monitor_target(target: MonitorTarget, x_api_key: str | None = Header(def
         raise HTTPException(status_code=409, detail="Monitoring target already exists")
     audit("add_monitor_target", target_id, x_actor or actor)
     return check_target(target_id, url, target.name or url, x_actor or actor)
+
+
+@app.delete("/api/monitor/targets/{target_id}")
+def delete_monitor_target(target_id: str, x_api_key: str | None = Header(default=None), x_actor: str | None = Header(default=None)):
+    actor, _ = require_role(x_api_key, {"admin"})
+    with db() as connection:
+        row = connection.execute("SELECT target_id FROM monitor_targets WHERE target_id=?", (target_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Monitoring target not found")
+        connection.execute("DELETE FROM monitor_checks WHERE target_id=?", (target_id,))
+        connection.execute("DELETE FROM monitor_targets WHERE target_id=?", (target_id,))
+    audit("delete_monitor_target", target_id, x_actor or actor)
+    return {"target_id": target_id, "deleted": True}
+
+
+@app.get("/api/monitor/targets/{target_id}/history")
+def monitor_target_history(target_id: str, limit: int = 30, x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin", "responder", "analyst"})
+    limit = max(1, min(limit, 100))
+    with db() as connection:
+        target = connection.execute("SELECT target_id FROM monitor_targets WHERE target_id=?", (target_id,)).fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="Monitoring target not found")
+        rows = connection.execute(
+            "SELECT id,target_id,checked_at,status,status_code,response_ms,findings FROM monitor_checks WHERE target_id=? ORDER BY id DESC LIMIT ?",
+            (target_id, limit),
+        ).fetchall()
+    return [
+        {
+            **{key: row[key] for key in ("id", "target_id", "checked_at", "status", "status_code", "response_ms")},
+            "findings": json.loads(row["findings"]) if row["findings"] else [],
+        }
+        for row in rows
+    ]
 
 
 @app.post("/api/monitor/targets/{target_id}/check")
