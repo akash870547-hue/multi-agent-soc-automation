@@ -83,7 +83,7 @@ function resolveSelected(){lifecycleAction("resolve")}
 async function approveSelected(){
  if(!selectedIncidentId||!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API to record approval.";return;}
  try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/incidents/"+encodeURIComponent(selectedIncidentId)+"/approve",{method:"POST"});
+  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/incidents/"+encodeURIComponent(selectedIncidentId)+"/approve",{method:"POST",headers:{...API_HEADERS()}});
   if(!r.ok)throw new Error("API "+r.status);
   const updated=await r.json();
   localIncidents=localIncidents.map(x=>x.incident_id===updated.incident_id?updated:x);
