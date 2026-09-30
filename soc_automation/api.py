@@ -1131,7 +1131,10 @@ def admin_public_activity(limit: int = 200, x_api_key: str | None = Header(defau
     limit = max(1, min(limit, 500))
     with db() as connection:
         rows = connection.execute(
-            "SELECT id,visitor_id,action,page,detail,ip_address,user_agent,created_at FROM public_activity ORDER BY id DESC LIMIT ?",
+            """SELECT a.id,a.visitor_id,v.visitor_name,a.action,a.page,a.detail,a.ip_address,a.user_agent,a.created_at
+               FROM public_activity a
+               LEFT JOIN public_visitors v ON v.visitor_id=a.visitor_id
+               ORDER BY a.id DESC LIMIT ?""",
             (limit,),
         ).fetchall()
     output = []
