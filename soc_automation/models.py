@@ -37,3 +37,5 @@ class Incident(BaseModel):
     status: str = "open"
     findings: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
+    iocs: dict[str, list[str]] = Field(default_factory=lambda: {"ipv4": [], "sha256": []})
+    mitre: dict = Field(default_factory=dict)
