@@ -48,7 +48,7 @@
 </section>
 <section id="adminConsole" class="mt-6 hidden rounded-xl border border-amber-500/20 bg-slate-900 p-6">
  <div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Admin Console</h2><p class="mt-1 text-xs text-slate-500">Administrative visibility for governance and monitoring activity.</p></div><button onclick="loadAuditLogs()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Refresh Audit Logs</button></div>
- <div id="auditLogs" class="mt-4 overflow-auto text-xs"></div>
+ <div id="auditLogs" class="mt-4 overflow-auto text-xs"></div><div id="keyManager" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"><div class="flex items-center justify-between"><div class="text-sm font-semibold">API Key Management</div><button onclick="loadKeys()" class="text-xs text-sky-400">Refresh</button></div><div class="mt-3 grid gap-2 sm:grid-cols-3"><input id="keyName" class="rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs" placeholder="Key name"><select id="keyRole" class="rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs"><option value="analyst">Analyst</option><option value="responder">Responder</option><option value="admin">Admin</option></select><button onclick="createKey()" class="rounded-lg bg-sky-500 p-2 text-xs font-semibold text-slate-950">Generate Key</button></div><div id="keyList" class="mt-3 space-y-2"></div><div id="newKey" class="mt-3 hidden rounded-lg border border-amber-500/30 bg-amber-500/5 p-3"><div class="text-xs text-amber-300">New key, copy it now. It will not be shown again.</div><code id="newKeyValue" class="mt-2 block break-all text-xs text-slate-200"></code></div></div>
 </section>
 <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Pipeline</h2><div class="mt-5 grid gap-3 text-center sm:grid-cols-5"><div class="rounded-lg bg-slate-950 p-4"><b>01</b><div class="mt-1 text-xs text-slate-400">Ingest</div></div><div class="rounded-lg bg-slate-950 p-4"><b>02</b><div class="mt-1 text-xs text-slate-400">Detect</div></div><div class="rounded-lg bg-slate-950 p-4"><b>03</b><div class="mt-1 text-xs text-slate-400">Triage</div></div><div class="rounded-lg bg-slate-950 p-4"><b>04</b><div class="mt-1 text-xs text-slate-400">Threat Intel</div></div><div class="rounded-lg bg-slate-950 p-4"><b>05</b><div class="mt-1 text-xs text-slate-400">Investigate / Human-approved Response</div></div></div></section>
 <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-500">Prototype presentation layer • Backend API supported • <a class="text-sky-400 hover:underline" href="https://github.com/akash870547-hue/multi-agent-soc-automation">View source on GitHub</a></footer>
@@ -147,7 +147,7 @@ async function loadMe(){
   set("permIngest",d.permissions.ingest);set("permAck",d.permissions.acknowledge);set("permApprove",d.permissions.approve);set("permResolve",d.permissions.resolve);set("permMonitor",d.permissions.website_monitor);set("permAudit",d.permissions.audit_logs);
   document.getElementById("adminConsole").classList.toggle("hidden",!d.permissions.audit_logs);
   document.getElementById("addMonitorBtn").disabled=!d.permissions.website_monitor;
-  if(d.permissions.audit_logs)loadAuditLogs();
+  if(d.permissions.audit_logs){loadAuditLogs();document.getElementById("keyManager").classList.remove("hidden");loadKeys();}
   loadMonitorTargets();
  }catch(e){}
 }
@@ -179,6 +179,9 @@ async function checkMonitor(id){
   const d=await r.json();document.getElementById("notice").textContent="Website check: "+d.status+" ("+(d.response_ms??"N/A")+"ms).";loadMonitorTargets();loadLive();loadMe();
  }catch(e){document.getElementById("notice").textContent="Website check failed: "+e.message;}
 }
+async function loadKeys(){if(!API_BASE)return;try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys",{headers:{...API_HEADERS()}});if(!r.ok)throw new Error();const rows=await r.json();document.getElementById("keyManager").classList.remove("hidden");document.getElementById("keyList").innerHTML=rows.length?rows.map(x=>`<div class="flex items-center justify-between rounded border border-slate-800 p-2 text-xs"><span>${esc(x.name)} • ${esc(x.role)}</span><span>${x.revoked_at?"REVOKED":"ACTIVE"} ${x.revoked_at?"":"<button class='ml-2 text-red-400' onclick=\"revokeKey('"+esc(x.key_id)+"')\">Revoke</button>"}</span></div>`).join(""):"<span class='text-slate-500'>No managed keys.</span>"}catch(e){document.getElementById("keyManager").classList.add("hidden")}}
+async function createKey(){const name=document.getElementById("keyName").value.trim(),role=document.getElementById("keyRole").value;if(!name)return;const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify({name,role})});const d=await r.json();if(!r.ok){document.getElementById("notice").textContent=d.detail||"Key generation failed";return}document.getElementById("newKey").classList.remove("hidden");document.getElementById("newKeyValue").textContent=d.api_key;document.getElementById("keyName").value="";loadKeys()}
+async function revokeKey(id){const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys/"+encodeURIComponent(id)+"/revoke",{method:"POST",headers:{...API_HEADERS()}});if(r.ok)loadKeys()}
 async function loadAuditLogs(){
  if(!API_BASE)return;
  try{
