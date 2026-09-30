@@ -19,3 +19,7 @@ services:
         sync: false
       - key: SOC_ADMIN_KEY
         sync: false
+      - key: SOC_RATE_LIMIT
+        value: "60"
+      - key: SOC_RATE_WINDOW_SECONDS
+        value: "60"
