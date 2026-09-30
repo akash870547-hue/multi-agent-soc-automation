@@ -41,3 +41,4 @@ class Incident(BaseModel):
     mitre: dict = Field(default_factory=dict)
     approved_actions: list[str] = Field(default_factory=list)
     governance: dict = Field(default_factory=lambda: {"approval_required": True, "approved": False})
+    reasoning: dict = Field(default_factory=dict)
