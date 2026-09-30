@@ -8,7 +8,7 @@ Build a modular SOC automation platform that ingests security events, triages al
 
 ## Architecture
 
-Security Events → Ingestion → Detection/Correlation → Multi-Agent Analysis → Governance → Response Recommendation → Incident Report
+Security Events → Ingestion → Detection → Correlation → Multi-Agent Analysis → Governance → Response Recommendation → Incident Report
 
 ### Agents
 
@@ -26,10 +26,24 @@ Security Events → Ingestion → Detection/Correlation → Multi-Agent Analysis
 - Reproducible experiments
 - Measurable MTTD/MTTR improvements
 - Local-first development
+- Provider-agnostic reasoning
 
-## Phase 1
+## Current implementation
 
-The initial MVP supports structured events, rule-based detection, incident creation, agent orchestration, JSON incident reports, and tests.
+The backend currently supports:
+
+- Structured security event ingestion
+- Rule-based alert detection
+- Multi-agent incident orchestration
+- IOC extraction and MITRE ATT&CK mapping
+- Reusable time-window event correlation using source IP, destination IP, and username pivots
+- Deterministic reasoning and incident prioritization
+- SQLite persistence for events and incidents
+- Human approval workflow
+- Incident acknowledgement and resolution lifecycle
+- MTTD and MTTR API metrics
+- Automated tests and GitHub Actions CI
+- Browser-based SOC dashboard prototype
 
 ## Run
 
@@ -44,11 +58,11 @@ python -m soc_automation
 
 The repository includes a SOC dashboard prototype in `dashboard/index.html`.
 
-After GitHub Pages is enabled for the repository, the dashboard will be available at:
+After GitHub Pages is enabled for the repository, the dashboard is available at:
 
 `https://akash870547-hue.github.io/multi-agent-soc-automation/`
 
-The dashboard is designed as the presentation layer for the project. The backend and agent pipeline remain in the Python package.
+The dashboard is the presentation layer. The Python API and agent pipeline run separately.
 
 ## API backend
 
@@ -63,11 +77,16 @@ Useful endpoints:
 - `GET /health` - service health
 - `GET /api/agents` - agent status
 - `GET /api/incidents` - incident list
-- `GET /api/metrics` - SOC metrics
+- `GET /api/incidents/{incident_id}` - incident details
+- `GET /api/metrics` - SOC metrics including MTTD/MTTR
 - `POST /api/events` - ingest and process a security event
 - `POST /api/incidents/{incident_id}/approve` - human approval gate
+- `POST /api/incidents/{incident_id}/acknowledge` - acknowledge an incident
+- `POST /api/incidents/{incident_id}/resolve` - resolve an incident
 
-The public GitHub Pages dashboard runs in demo mode by default. To connect it to a running API, open the dashboard with an `api` query parameter, for example `?api=http://localhost:8000`.
+The public GitHub Pages dashboard runs in demo mode by default. To connect it to a running API, open the dashboard with an `api` query parameter, for example:
+
+`?api=http://localhost:8000`
 
 ## Test
 
@@ -84,12 +103,17 @@ pytest
 - [x] Threat Intelligence Agent
 - [x] IOC enrichment
 - [x] MITRE ATT&CK mapping
-- [x] Initial event correlation
+- [x] Event correlation engine
 - [x] Governance and human approval workflow
-- [ ] LLM reasoning layer
-- [ ] API and persistent incident store
-- [ ] MTTD/MTTR experiment framework
-- [ ] Production-grade dashboard
-
+- [x] SQLite persistent incident/event store
+- [x] Deterministic reasoning foundation
+- [x] Incident acknowledgement/resolution lifecycle
+- [x] MTTD/MTTR API metrics
+- [ ] Optional LLM reasoning provider
+- [ ] API authentication and role-based access
+- [ ] MTTD/MTTR experiment dataset and evaluation framework
+- [ ] Threat intelligence provider adapters
+- [ ] Production backend deployment
+- [ ] Production-grade live dashboard
 
 <!-- GitHub Pages deployment trigger: dashboard deployment enabled. -->
