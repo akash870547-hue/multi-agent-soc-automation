@@ -133,6 +133,10 @@ def ensure_bootstrap_admin(connection: sqlite3.Connection) -> None:
         return
     row = connection.execute("SELECT user_id FROM users WHERE username=?", (username,)).fetchone()
     if row:
+        connection.execute(
+            "UPDATE users SET role='admin', password_hash=?, revoked_at=NULL WHERE user_id=?",
+            (password_hash, row["user_id"]),
+        )
         return
     connection.execute(
         "INSERT INTO users(user_id,username,role,password_hash,created_at) VALUES (?,?,?,?,?)",
