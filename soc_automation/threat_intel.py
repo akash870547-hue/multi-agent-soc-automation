@@ -3,8 +3,8 @@ import re
 from .models import SecurityEvent
 
 
-IPV4 = re.compile(r"\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b")
-HASH = re.compile(r"\\b[a-fA-F0-9]{64}\\b")
+IPV4 = re.compile(r"\b(?:\d{1,3}\\.){3}\d{1,3}\\b")
+HASH = re.compile(r"\b[a-fA-F0-9]{64}\\b")
 
 
 def extract_iocs(event: SecurityEvent) -> dict[str, list[str]]:
