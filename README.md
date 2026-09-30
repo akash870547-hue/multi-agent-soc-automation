@@ -84,6 +84,14 @@ Useful endpoints:
 - `POST /api/incidents/{incident_id}/acknowledge` - acknowledge an incident
 - `POST /api/incidents/{incident_id}/resolve` - resolve an incident
 
+### Optional API authentication
+
+Set `SOC_API_KEY` to protect event ingestion and incident state-changing endpoints with the `X-API-Key` header. When `SOC_API_KEY` is not configured, the local development API remains open for the dashboard demo.
+
+```bash
+SOC_API_KEY=change-me uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
 The public GitHub Pages dashboard runs in demo mode by default. To connect it to a running API, open the dashboard with an `api` query parameter, for example:
 
 `?api=http://localhost:8000`
@@ -110,7 +118,8 @@ pytest
 - [x] Incident acknowledgement/resolution lifecycle
 - [x] MTTD/MTTR API metrics
 - [ ] Optional LLM reasoning provider
-- [ ] API authentication and role-based access
+- [x] Optional API-key authentication
+- [ ] Role-based access
 - [ ] MTTD/MTTR experiment dataset and evaluation framework
 - [ ] Threat intelligence provider adapters
 - [ ] Production backend deployment
