@@ -40,8 +40,34 @@ pip install -r requirements.txt
 python -m soc_automation
 ```
 
+## Browser Demo
+
+The repository includes a SOC dashboard prototype in `dashboard/index.html`.
+
+After GitHub Pages is enabled for the repository, the dashboard will be available at:
+
+`https://akash870547-hue.github.io/multi-agent-soc-automation/`
+
+The dashboard is designed as the presentation layer for the project. The backend and agent pipeline remain in the Python package.
+
 ## Test
 
 ```bash
 pytest
 ```
+
+## Development roadmap
+
+- [x] Core security event and incident models
+- [x] Rule-based alert detection
+- [x] Initial multi-agent orchestration
+- [x] SOC dashboard prototype
+- [ ] Threat Intelligence Agent
+- [ ] IOC enrichment
+- [ ] MITRE ATT&CK mapping
+- [ ] Event correlation engine
+- [ ] Governance and approval workflow
+- [ ] LLM reasoning layer
+- [ ] API and persistent incident store
+- [ ] MTTD/MTTR experiment framework
+- [ ] Production-grade dashboard
