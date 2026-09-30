@@ -181,17 +181,26 @@ function simulate(){document.getElementById("message").value="SQL injection dete
 
 async function loadMe(){
  if(!API_BASE)return;
+ const token=localStorage.getItem("soc_api_key");
+ if(!token){location.href="./?login=1";return;}
  try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/me",{headers:{...API_HEADERS()}});
-  if(!r.ok){updateAuthStatus(false);return;}
+  const r=await fetch(API_BASE+"/api/me",{headers:{...API_HEADERS()}});
+  if(!r.ok){localStorage.removeItem("soc_api_key");localStorage.removeItem("soc_user");location.href="./?login=1";return;}
   const d=await r.json(); updateAuthStatus(true);
   window.socRole=d.role||"unknown";
+  document.getElementById("sessionUser").textContent=(d.actor||"user")+" • "+(d.role||"unknown").toUpperCase();
   document.getElementById("roleBadge").textContent=(d.role||"unknown").toUpperCase()+" • "+d.actor;
   const set=(id,v)=>{document.getElementById(id).textContent=v?"YES":"NO";document.getElementById(id).className=v?"text-emerald-400":"text-slate-600";};
   set("permIngest",d.permissions.ingest);set("permAck",d.permissions.acknowledge);set("permApprove",d.permissions.approve);set("permResolve",d.permissions.resolve);set("permMonitor",d.permissions.website_monitor);set("permAudit",d.permissions.audit_logs);
   document.getElementById("adminConsole").classList.toggle("hidden",!d.permissions.audit_logs);
   document.getElementById("addMonitorBtn").disabled=!d.permissions.website_monitor;
-  if(d.permissions.audit_logs){loadAuditLogs();document.getElementById("keyManager").classList.remove("hidden");loadKeys();}
+  if(d.permissions.audit_logs){
+    loadAuditLogs();
+    document.getElementById("userManager").classList.remove("hidden");
+    document.getElementById("keyManager").classList.remove("hidden");
+    loadUsers();
+    loadKeys();
+  }
   loadMonitorTargets();
  }catch(e){}
 }
@@ -270,6 +279,57 @@ async function checkMonitor(id){
   const d=await r.json();document.getElementById("notice").textContent="Website check: "+d.status+" ("+(d.response_ms??"N/A")+"ms).";loadMonitorTargets();loadLive();loadMe();
  }catch(e){document.getElementById("notice").textContent="Website check failed: "+e.message;}
 }
+async function loadUsers(){
+ if(!API_BASE)return;
+ try{
+  const r=await fetch(API_BASE+"/api/auth/users",{headers:{...API_HEADERS()}});
+  const d=await r.json().catch(()=>[]);
+  if(!r.ok)throw new Error(d.detail||("API "+r.status));
+  const box=document.getElementById("userList");
+  box.innerHTML="";
+  if(!d.length){box.textContent="No generated users yet.";return;}
+  d.forEach(x=>{
+    const row=document.createElement("div");
+    row.className="flex items-center justify-between rounded border border-slate-800 p-2 text-xs";
+    const left=document.createElement("span");
+    left.textContent=x.username+" • "+x.role;
+    const right=document.createElement("span");
+    right.textContent=x.revoked_at?"REVOKED":"ACTIVE";
+    if(!x.revoked_at){
+      const b=document.createElement("button");
+      b.className="ml-2 text-red-400";
+      b.textContent="Revoke";
+      b.onclick=()=>revokeUser(x.user_id);
+      right.appendChild(b);
+    }
+    row.appendChild(left);row.appendChild(right);box.appendChild(row);
+  });
+ }catch(e){document.getElementById("userList").textContent="User management unavailable.";}
+}
+async function generateUser(){
+ const role=document.getElementById("userRole").value;
+ const username=document.getElementById("userName").value.trim();
+ try{
+  const r=await fetch(API_BASE+"/api/auth/users/generate",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify({role,username:username||null})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||("API "+r.status));
+  document.getElementById("newCredentials").classList.remove("hidden");
+  document.getElementById("newCredentialsValue").textContent="Username: "+d.username+"\nRole: "+d.role+"\nPassword: "+d.password;
+  document.getElementById("userName").value="";
+  loadUsers();
+  document.getElementById("notice").textContent="New "+d.role+" credentials generated.";
+ }catch(e){document.getElementById("notice").textContent="Credential generation failed: "+e.message;}
+}
+async function revokeUser(id){
+ if(!confirm("Revoke this user account?"))return;
+ try{
+  const r=await fetch(API_BASE+"/api/auth/users/"+encodeURIComponent(id)+"/revoke",{method:"POST",headers:{...API_HEADERS()}});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||("API "+r.status));
+  loadUsers();
+ }catch(e){document.getElementById("notice").textContent="User revoke failed: "+e.message;}
+}
+
 async function loadKeys(){if(!API_BASE)return;try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys",{headers:{...API_HEADERS()}});if(!r.ok)throw new Error();const rows=await r.json();document.getElementById("keyManager").classList.remove("hidden");document.getElementById("keyList").innerHTML=rows.length?rows.map(x=>`<div class="flex items-center justify-between rounded border border-slate-800 p-2 text-xs"><span>${esc(x.name)} • ${esc(x.role)}</span><span>${x.revoked_at?"REVOKED":"ACTIVE"} ${x.revoked_at?"":"<button class='ml-2 text-red-400' onclick=\"revokeKey('"+esc(x.key_id)+"')\">Revoke</button>"}</span></div>`).join(""):"<span class='text-slate-500'>No managed keys.</span>"}catch(e){document.getElementById("keyManager").classList.add("hidden")}}
 async function createKey(){const name=document.getElementById("keyName").value.trim(),role=document.getElementById("keyRole").value;if(!name)return;const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify({name,role})});const d=await r.json();if(!r.ok){document.getElementById("notice").textContent=d.detail||"Key generation failed";return}document.getElementById("newKey").classList.remove("hidden");document.getElementById("newKeyValue").textContent=d.api_key;document.getElementById("keyName").value="";loadKeys()}
 async function revokeKey(id){const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys/"+encodeURIComponent(id)+"/revoke",{method:"POST",headers:{...API_HEADERS()}});if(r.ok)loadKeys()}
@@ -282,6 +342,12 @@ async function loadAuditLogs(){
   document.getElementById("auditLogs").innerHTML=rows.length?`<table class="w-full text-left"><thead class="text-slate-500"><tr><th class="p-2">Time</th><th class="p-2">Action</th><th class="p-2">Resource</th><th class="p-2">Actor</th></tr></thead><tbody>${rows.map(x=>`<tr class="border-t border-slate-800"><td class="p-2">${esc(new Date(x.created_at).toLocaleString())}</td><td class="p-2">${esc(x.action)}</td><td class="p-2">${esc(x.resource_id||"-")}</td><td class="p-2">${esc(x.actor)}</td></tr>`).join("")}</tbody></table>`:'<div class="text-slate-500">No audit entries yet.</div>';
  }catch(e){document.getElementById("auditLogs").textContent="Audit logs unavailable.";}
 }
+function logout(){
+ localStorage.removeItem("soc_api_key");
+ localStorage.removeItem("soc_user");
+ location.href="./?login=1";
+}
+
 async function loadLive(){
  if(!API_BASE){renderAgents();renderIncidents([]);return;}
  try{
