@@ -251,12 +251,22 @@
   </div>
 </section>
 
-<section id="reportSection" class="mt-8 hidden rounded-3xl border border-emerald-500/20 bg-slate-900 p-6 sm:p-8">
-  <div class="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div><div class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">Generated Research Demonstration Report</div><h2 class="mt-1 text-2xl font-bold">Incident response workflow report</h2><p class="mt-1 text-xs text-slate-500">Structured evidence, MITRE mapping, reasoning, governance and response recommendation for the selected synthetic scenario.</p></div>
-    <div class="flex gap-2"><button onclick="printReport()" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-950">Print / Save PDF</button><button onclick="downloadReport()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950">Download Report</button></div>
+<section id="reportSection" class="mt-8 hidden rounded-3xl border border-emerald-500/20 bg-slate-900 p-5 sm:p-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">Report ready</div>
+      <h2 class="mt-1 text-xl font-bold">Research Demonstration Report</h2>
+      <p class="mt-1 text-xs text-slate-500">A structured incident-response report has been generated for the selected synthetic scenario.</p>
+    </div>
+    <button id="viewReportBtn" onclick="toggleReportView()" class="rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">View Report</button>
   </div>
-  <div id="reportPreview" class="report-paper mt-5 overflow-hidden rounded-xl shadow-xl"></div>
+  <div id="reportDetails" class="hidden">
+    <div class="no-print mt-4 flex flex-wrap gap-2">
+      <button onclick="printReport()" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-950">Print / Save PDF</button>
+      <button onclick="downloadReport()" class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20">Download Report</button>
+    </div>
+    <div id="reportPreview" class="report-paper mt-5 overflow-hidden rounded-xl shadow-xl"></div>
+  </div>
 </section>
 
 <section id="mitre" class="mt-8 rounded-3xl border border-slate-800 bg-slate-900 p-6 sm:p-8">
@@ -577,6 +587,15 @@ function reportHtml(p){
  return '<div class="report-paper"><div class="bg-slate-950 px-7 py-6 text-white"><div class="text-xs uppercase tracking-[0.25em] text-sky-400">Multi-Agent SOC</div><div class="mt-2 text-2xl font-bold">Security Incident Demonstration Report</div><div class="mt-2 text-sm text-slate-400">Synthetic product walkthrough • '+escapeHtml(reportId)+'</div></div><div class="p-7"><div class="grid gap-4 md:grid-cols-4"><div><div class="text-[11px] uppercase tracking-wide text-slate-500">Participant</div><div class="mt-1 font-semibold">'+escapeHtml(participantName)+'</div></div><div><div class="text-[11px] uppercase tracking-wide text-slate-500">Attack</div><div class="mt-1 font-semibold">'+escapeHtml(p.title)+'</div></div><div><div class="text-[11px] uppercase tracking-wide text-slate-500">Severity</div><div class="mt-1 font-semibold">'+escapeHtml(p.severity)+'</div></div><div><div class="text-[11px] uppercase tracking-wide text-slate-500">MITRE</div><div class="mt-1 font-semibold">'+escapeHtml(p.id)+'</div></div></div><hr class="my-6"><h3 class="text-lg font-bold">1. Executive Summary</h3><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.reasoning)+'</p><p class="mt-2 text-sm leading-6 text-slate-700">Affected asset: '+escapeHtml(p.asset)+'. Potential impact: '+escapeHtml(p.impact)+'</p><h3 class="mt-6 text-lg font-bold">2. Incident Classification</h3><div class="mt-3 grid gap-3 md:grid-cols-3"><div class="rounded border p-3"><div class="text-[11px] text-slate-500">Technique</div><div class="mt-1 font-semibold">'+escapeHtml(p.name)+' ('+escapeHtml(p.id)+')</div></div><div class="rounded border p-3"><div class="text-[11px] text-slate-500">Tactic</div><div class="mt-1 font-semibold">'+escapeHtml(p.tactic)+'</div></div><div class="rounded border p-3"><div class="text-[11px] text-slate-500">Detection</div><div class="mt-1 font-semibold">93% confidence</div></div></div><h3 class="mt-6 text-lg font-bold">3. Detection and Correlation</h3><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.detection)+'</p><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.correlation)+'</p><h3 class="mt-6 text-lg font-bold">4. Investigation Findings</h3><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">'+findings+'</ul><p class="mt-3 text-sm leading-6 text-slate-700">'+escapeHtml(p.investigation)+'</p><h3 class="mt-6 text-lg font-bold">5. Multi-Agent Reasoning</h3><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.reasoning)+'</p><h3 class="mt-6 text-lg font-bold">6. Response Recommendation</h3><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">'+recommendations+'</ul><h3 class="mt-6 text-lg font-bold">7. Human Governance</h3><p class="mt-2 text-sm leading-6 text-slate-700">The simulated Response Agent recommendation remained behind the human approval gate. No real production action was executed.</p><h3 class="mt-6 text-lg font-bold">8. Workflow Completion Record</h3><table class="mt-3 w-full border-collapse text-left text-sm"><thead><tr class="border-b"><th class="p-2">#</th><th class="p-2">Stage</th><th class="p-2">Agent</th><th class="p-2">Status</th></tr></thead><tbody>'+timeline+'</tbody></table><div class="mt-7 rounded-lg bg-slate-50 p-4 text-xs text-slate-600"><b>Demonstration notice:</b> This document describes a synthetic security workflow created for product demonstration. It is not evidence of an actual compromise or production incident.</div><div class="mt-6 text-xs text-slate-500">Generated: '+escapeHtml(new Date(visitorReport.generatedAt).toLocaleString())+' • Participant: '+escapeHtml(participantName)+'</div></div></div>';
 }
 
+function toggleReportView(){
+ const details=document.getElementById("reportDetails");
+ const btn=document.getElementById("viewReportBtn");
+ if(!details||!btn)return;
+ const opening=details.classList.contains("hidden");
+ details.classList.toggle("hidden",!opening);
+ btn.textContent=opening?"Hide Report":"View Report";
+ if(opening)document.getElementById("reportSection")?.scrollIntoView({behavior:"smooth",block:"start"});
+}
 function generateReport(auto=false){
  if(!ensureParticipant()||!demo.profile)return;
  if(demo.completed<stageDefinitions.length-1){
@@ -585,7 +604,9 @@ function generateReport(auto=false){
  }
  document.getElementById("reportPreview").innerHTML=reportHtml(demo.profile);
  document.getElementById("reportSection").classList.remove("hidden");
- if(!auto)document.getElementById("reportSection").scrollIntoView({behavior:"smooth",block:"start"});
+ document.getElementById("reportDetails").classList.add("hidden");
+ document.getElementById("viewReportBtn").textContent="View Report";
+ if(!auto)document.getElementById("reportSection").scrollIntoView({behavior:"smooth",block:"center"});
  logPublic("demo_report_generated",{report_id:visitorReport.reportId,attack:demo.profile.title,technique_id:demo.profile.id});
 }
 
