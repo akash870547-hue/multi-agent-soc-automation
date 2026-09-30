@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 import json
 import os
 import sqlite3
+import time
+from collections import defaultdict, deque
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +26,9 @@ app.add_middleware(
 DB_PATH = os.getenv("SOC_DB_PATH", "soc_automation.db")
 API_KEY = os.getenv("SOC_API_KEY")
 ROLE_KEYS = {"analyst": os.getenv("SOC_ANALYST_KEY"), "responder": os.getenv("SOC_RESPONDER_KEY"), "admin": os.getenv("SOC_ADMIN_KEY")}
+RATE_LIMIT = int(os.getenv("SOC_RATE_LIMIT", "60"))
+RATE_WINDOW = int(os.getenv("SOC_RATE_WINDOW_SECONDS", "60"))
+_request_log: dict[str, deque[float]] = defaultdict(deque)
 
 
 def db():
@@ -130,6 +135,16 @@ def get_incident_or_404(incident_id: str) -> dict:
     return json.loads(row["payload"])
 
 
+def rate_limit(client_key: str):
+    now = time.time()
+    bucket = _request_log[client_key]
+    while bucket and now - bucket[0] > RATE_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    bucket.append(now)
+
+
 def authenticate(x_api_key: str | None) -> tuple[str, str]:
     if not (API_KEY or any(ROLE_KEYS.values())):
         return "local", "admin"
@@ -151,6 +166,16 @@ def require_role(x_api_key: str | None, allowed_roles: set[str]) -> tuple[str, s
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.4.0"}
+
+
+@app.get("/ready")
+def ready():
+    try:
+        with db() as connection:
+            connection.execute("SELECT 1").fetchone()
+        return {"status": "ready", "storage": "sqlite"}
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=503, detail=f"Storage unavailable: {exc}")
 
 
 @app.get("/api/agents")
@@ -233,6 +258,7 @@ def ingest_event(
     x_actor: str | None = Header(default=None),
 ):
     actor, _ = require_role(x_api_key, {"admin", "responder", "analyst"})
+    rate_limit(x_api_key or "anonymous")
     prior_events = load_events()
     save_event(event)
     result = process_event(event)
