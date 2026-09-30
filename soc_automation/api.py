@@ -618,7 +618,6 @@ def monitor_targets(x_api_key: str | None = Header(default=None)):
             label for header, label in REQUIRED_SECURITY_HEADERS.items()
             if header not in headers
         ]
-        item.pop("security_headers", None) if "security_headers" in item and item["security_headers"] == item.get("security_headers") else None
         output.append(item)
     return output
 
