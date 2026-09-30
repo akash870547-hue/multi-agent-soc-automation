@@ -3,325 +3,105 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multi-Agent SOC | Operations Dashboard</title>
+<title>Multi-Agent SOC | Public Test</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
 <header class="border-b border-slate-800 bg-slate-950/95">
-<div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-<div><div class="text-xl font-bold">Multi-Agent SOC</div><div class="text-xs text-slate-400">AI-assisted Security Operations Center</div></div>
-<div class="flex items-center gap-3"><span id="mode" class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">PRODUCTION MODE</span><span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">● ONLINE</span></div>
-</div></header>
-<main class="mx-auto max-w-7xl px-6 py-8">
-<section class="mb-8"><h1 class="text-3xl font-bold">Security Operations Dashboard</h1><p class="mt-2 max-w-3xl text-slate-400">Research implementation of a multi-agent framework for SOC automation and incident response.</p></section>
-<section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Active Alerts</div><div id="m-active" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Critical</div><div id="m-critical" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Investigating</div><div id="m-investigating" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Resolved</div><div id="m-resolved" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Avg MTTD</div><div id="m-mttd" class="mt-2 text-2xl font-bold">N/A</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Avg MTTR</div><div id="m-mttr" class="mt-2 text-2xl font-bold">N/A</div></div>
-</section>
-<section class="mt-8 grid gap-6 lg:grid-cols-3">
-<div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-6">
-<div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Recent Incidents</h2><button onclick="simulate()" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400">Simulate Attack</button></div>
-<div id="incidents" class="mt-5 space-y-3"></div>
-</div>
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Agent Status</h2><div id="agents" class="mt-5 space-y-4"></div></div>
-</section>
-<section class="mt-6 grid gap-6 lg:grid-cols-2">
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Detail</h2><pre id="detail" class="mt-4 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-300">Select an incident.</pre>
-<div id="reasoningCard" class="mt-3 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"><div class="text-xs uppercase tracking-wide text-slate-500">Agent Reasoning</div><div id="reasoningSummary" class="mt-2 text-sm"></div><div id="reasoningMeta" class="mt-2 text-xs text-slate-400"></div></div><div id="actions" class="mt-3 hidden gap-2">
-<button id="approveBtn" onclick="approveSelected()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Approve Response</button><button id="ackBtn" onclick="acknowledgeSelected()" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400">Acknowledge</button><button id="resolveBtn" onclick="resolveSelected()" class="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-violet-400">Resolve</button>
-<span id="governance" class="rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-400"></span>
-</div></div>
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Event Ingestion & API</h2>
-<div class="mt-4 space-y-3"><div class="flex items-center justify-between gap-3"><label for="apiKey" class="text-sm font-medium">API Authentication</label><span id="authStatus" class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">Not configured</span></div><div class="flex gap-2"><input id="apiKey" type="password" placeholder="Paste bootstrap/admin API key" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm"><button onclick="connectApi()" class="rounded-lg bg-emerald-500 px-3 text-sm font-semibold text-slate-950">Connect</button><button onclick="clearApiKey()" class="rounded-lg border border-slate-700 px-3 text-sm hover:bg-slate-800">Clear</button></div><input id="message" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="SQL injection detected from 198.51.100.10"><div class="grid gap-3 sm:grid-cols-2"><input id="sourceIp" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="198.51.100.10"><input id="destIp" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="10.0.0.20"></div><button onclick="ingest()" class="w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm font-semibold hover:bg-slate-700">Ingest Event</button><p id="notice" class="text-xs text-slate-500"></p><p class="text-xs text-slate-600">First connection requires the bootstrap/admin key configured on the backend. After login, Admin Console can generate and revoke role-based keys. The key is stored only in this browser and sent as <code>X-API-Key</code>.</p></div></div>
-</section>
-
-<section class="mt-6 grid gap-6 lg:grid-cols-3">
-<div class="rounded-xl border border-sky-500/20 bg-slate-900 p-6 lg:col-span-2">
-  <div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Public Website Security Test</h2><p class="mt-1 text-xs text-slate-500">One-time, read-only HTTPS security check. No target is saved and no continuous monitoring is created.</p></div><span class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-300">PUBLIC TEST</span></div>
-  <div class="mt-4 flex gap-2"><input id="publicTestUrl" class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com"><button id="publicTestBtn" onclick="runPublicTest()" class="rounded-lg bg-sky-500 px-4 text-sm font-semibold text-slate-950">Test Website</button></div>
-  <div id="publicTestResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
-</div>
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-  <h2 class="text-lg font-semibold">Access Control</h2>
-  <div id="roleBadge" class="mt-3 inline-flex rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">Not authenticated</div>
-  <div class="mt-4 space-y-2 text-sm"><div class="flex justify-between"><span>Ingest events</span><span id="permIngest">-</span></div><div class="flex justify-between"><span>Acknowledge</span><span id="permAck">-</span></div><div class="flex justify-between"><span>Approve response</span><span id="permApprove">-</span></div><div class="flex justify-between"><span>Resolve</span><span id="permResolve">-</span></div><div class="flex justify-between"><span>Website admin</span><span id="permMonitor">-</span></div><div class="flex justify-between"><span>Audit logs</span><span id="permAudit">-</span></div></div>
-</div>
-</section>
-
-<section id="adminMonitoringSection" class="mt-6 hidden rounded-xl border border-amber-500/20 bg-slate-900 p-6">
-  <div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Admin Continuous Website Monitoring</h2><p class="mt-1 text-xs text-slate-500">Persistent targets, scheduled checks, history, and SOC incident generation. Admin access only.</p></div><div class="flex items-center gap-2"><span id="monitorCount" class="text-xs text-slate-400">0 targets</span><span class="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-300">ADMIN</span></div></div>
-  <div class="mt-4 flex gap-2"><input id="monitorUrl" class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com"><input id="monitorName" class="w-40 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Target name"><button id="addMonitorBtn" onclick="addMonitor()" class="rounded-lg bg-sky-500 px-4 text-sm font-semibold text-slate-950">Add Target</button></div>
-  <div id="monitorTargets" class="mt-4 space-y-3"></div>
-  <div id="monitorHistory" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
-</section>
-
-<section id="adminConsole" class="mt-6 hidden rounded-xl border border-amber-500/20 bg-slate-900 p-6">
- <div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Admin Console</h2><p class="mt-1 text-xs text-slate-500">Administrative visibility for governance and monitoring activity.</p></div><button onclick="loadAuditLogs()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Refresh Audit Logs</button></div>
- <div id="auditLogs" class="mt-4 overflow-auto text-xs"></div><div id="keyManager" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"><div class="flex items-center justify-between"><div class="text-sm font-semibold">API Key Management</div><button onclick="loadKeys()" class="text-xs text-sky-400">Refresh</button></div><div class="mt-3 grid gap-2 sm:grid-cols-3"><input id="keyName" class="rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs" placeholder="Key name"><select id="keyRole" class="rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs"><option value="analyst">Analyst</option><option value="responder">Responder</option><option value="admin">Admin</option></select><button onclick="createKey()" class="rounded-lg bg-sky-500 p-2 text-xs font-semibold text-slate-950">Generate Key</button></div><div id="keyList" class="mt-3 space-y-2"></div><div id="newKey" class="mt-3 hidden rounded-lg border border-amber-500/30 bg-amber-500/5 p-3"><div class="text-xs text-amber-300">New key, copy it now. It will not be shown again.</div><code id="newKeyValue" class="mt-2 block break-all text-xs text-slate-200"></code></div></div>
-</section>
-<section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Pipeline</h2><div class="mt-5 grid gap-3 text-center sm:grid-cols-5"><div class="rounded-lg bg-slate-950 p-4"><b>01</b><div class="mt-1 text-xs text-slate-400">Ingest</div></div><div class="rounded-lg bg-slate-950 p-4"><b>02</b><div class="mt-1 text-xs text-slate-400">Detect</div></div><div class="rounded-lg bg-slate-950 p-4"><b>03</b><div class="mt-1 text-xs text-slate-400">Triage</div></div><div class="rounded-lg bg-slate-950 p-4"><b>04</b><div class="mt-1 text-xs text-slate-400">Threat Intel</div></div><div class="rounded-lg bg-slate-950 p-4"><b>05</b><div class="mt-1 text-xs text-slate-400">Investigate / Human-approved Response</div></div></div></section>
-<footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-500">Prototype presentation layer • Backend API supported • <a class="text-sky-400 hover:underline" href="https://github.com/akash870547-hue/multi-agent-soc-automation">View source on GitHub</a></footer>
-</main>
-<script>
-const params=new URLSearchParams(location.search);
-const API_BASE=(params.get("api") || "https://multi-agent-soc-api.onrender.com").replace(/\/$/,"");
-const API_HEADERS=()=>{const key=localStorage.getItem("soc_api_key") || "";return key?{"X-API-Key":key}:{};};
-function updateAuthStatus(ok=null){
- const el=document.getElementById("authStatus"), key=localStorage.getItem("soc_api_key")||"";
- el.textContent=!key?"Not configured":ok===true?"Authenticated":"Key saved";
- el.className="rounded-full border px-3 py-1 text-xs "+(!key?"border-slate-700 text-slate-400":ok===true?"border-emerald-500/30 bg-emerald-500/10 text-emerald-400":"border-amber-500/30 bg-amber-500/10 text-amber-400");
-}
-async function connectApi(){
- const input=document.getElementById("apiKey");
- const key=input.value.trim();
- if(!key){updateAuthStatus(false);document.getElementById("notice").textContent="Enter the bootstrap/admin API key first.";return;}
- localStorage.setItem("soc_api_key",key);
- try{
-  const r=await fetch(API_BASE+"/api/me",{headers:{...API_HEADERS()}});
-  const body=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(body.detail||("Authentication failed (HTTP "+r.status+")"));
-  updateAuthStatus(true);
-  applyPermissions(body);
-  document.getElementById("notice").textContent="Connected as "+body.role+".";
-  loadLive();
- }catch(e){updateAuthStatus(false);document.getElementById("notice").textContent=e.message;}}
-function applyPermissions(d){window.socRole=d.role||"unknown";document.getElementById("roleBadge").textContent=(d.role||"unknown").toUpperCase();document.getElementById("adminMonitoringSection").classList.toggle("hidden",d.role!=="admin");const p=d.permissions||{};for(const [id,v] of [["permIngest",p.ingest],["permAck",p.acknowledge],["permApprove",p.approve],["permResolve",p.resolve],["permMonitor",p.website_monitor],["permAudit",p.audit_logs]])document.getElementById(id).textContent=v?"YES":"NO";if(p.audit_logs){document.getElementById("adminConsole").classList.remove("hidden");document.getElementById("keyManager").classList.remove("hidden");loadAuditLogs();loadKeys()}}
-function clearApiKey(){localStorage.removeItem("soc_api_key");document.getElementById("apiKey").value="";updateAuthStatus(false);document.getElementById("notice").textContent="API key cleared from this browser."}
-let localIncidents=[];
-const demoAgents=[
- {name:"Triage Agent",status:"ready"},{name:"Threat Intelligence Agent",status:"ready"},
- {name:"Investigation Agent",status:"ready"},{name:"Response Agent",status:"approval_required"},{name:"Reporting Agent",status:"ready"}
-];
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function renderAgents(a=demoAgents){document.getElementById("agents").innerHTML=a.map(x=>`<div class="flex justify-between"><span>${esc(x.name)}</span><span class="text-emerald-400">● ${esc(x.status)}</span></div>`).join("")}
-function renderIncidents(list){
- document.getElementById("incidents").innerHTML=list.length?list.slice().reverse().map((x,i)=>`<button onclick="showIncident('${esc(x.incident_id)}')" class="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4 text-left hover:border-slate-600"><div><div class="font-medium">${esc(x.alert.title)}</div><div class="text-xs text-slate-500">${esc((x.iocs?.ipv4||[]).join(", "))}</div></div><span class="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">${esc(x.alert.severity.toUpperCase())}</span></button>`).join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">No incidents yet. Use Simulate Attack.</div>';
- document.getElementById("m-active").textContent=list.filter(x=>x.status==="open").length;
- document.getElementById("m-critical").textContent=list.filter(x=>x.alert.severity==="critical").length;
- document.getElementById("m-investigating").textContent=list.filter(x=>x.status==="investigating").length;
- document.getElementById("m-resolved").textContent=list.filter(x=>x.status==="resolved").length;
-}
-let selectedIncidentId=null;
-function showIncident(id){
- const x=localIncidents.find(i=>i.incident_id===id); if(!x)return;
- selectedIncidentId=id;
- document.getElementById("detail").textContent=JSON.stringify(x,null,2);
- const actions=document.getElementById("actions");
- const approved=x.governance?.approved===true;
- actions.classList.remove("hidden"); actions.classList.add("flex");
- document.getElementById("approveBtn").disabled=approved;
- document.getElementById("approveBtn").textContent=approved?"Response Approved":"Approve Response";
- document.getElementById("governance").textContent=approved?"Human approval recorded":"Human approval required before response";document.getElementById("ackBtn").disabled=x.status!=="open";document.getElementById("resolveBtn").disabled=x.status==="resolved";
- const reasoning=x.reasoning||{}; const card=document.getElementById("reasoningCard"); card.classList.toggle("hidden",!reasoning.summary);
- if(reasoning.summary){document.getElementById("reasoningSummary").textContent=reasoning.summary;document.getElementById("reasoningMeta").textContent=`Priority ${reasoning.priority||"N/A"} • ${reasoning.engine||"unknown engine"} • ${(reasoning.next_steps||[]).length} recommended next step(s)`;}
-}
-async function lifecycleAction(action){
- if(!selectedIncidentId||!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API to update incident lifecycle.";return;}
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/incidents/"+encodeURIComponent(selectedIncidentId)+"/"+action,{method:"POST",headers:{...API_HEADERS()}});
-  if(!r.ok)throw new Error("API "+r.status);
-  const updated=await r.json();
-  localIncidents=localIncidents.map(x=>x.incident_id===updated.incident_id?updated:x);
-  showIncident(updated.incident_id); renderIncidents(localIncidents);
-  document.getElementById("notice").textContent="Incident status updated: "+updated.status+".";
- }catch(e){document.getElementById("notice").textContent="Lifecycle update failed: "+e.message;}
-}
-function acknowledgeSelected(){lifecycleAction("acknowledge")}
-function resolveSelected(){lifecycleAction("resolve")}
-async function approveSelected(){
- if(!selectedIncidentId||!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API to record approval.";return;}
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/incidents/"+encodeURIComponent(selectedIncidentId)+"/approve",{method:"POST",headers:{...API_HEADERS()}});
-  if(!r.ok)throw new Error("API "+r.status);
-  const updated=await r.json();
-  localIncidents=localIncidents.map(x=>x.incident_id===updated.incident_id?updated:x);
-  showIncident(updated.incident_id); renderIncidents(localIncidents);
-  document.getElementById("notice").textContent="Human approval recorded by the backend.";
- }catch(e){document.getElementById("notice").textContent="Approval failed: "+e.message;}
-}
-function localProcess(message,sourceIp,destIp){
- let severity=null,reason="",technique=null,name=null;
- const m=message.toLowerCase();
- if(m.includes("sql injection")){severity="high";reason="Potential SQL injection activity detected";technique="T1190";name="Exploit Public-Facing Application"}
- else if(m.includes("ransomware")){severity="critical";reason="Potential ransomware activity detected";technique="T1486";name="Data Encrypted for Impact"}
- else if(m.includes("malware")){severity="critical";reason="Potential malware activity detected";technique="T1204";name="User Execution"}
- else if(m.includes("failed login")){severity="medium";reason="Repeated or suspicious authentication failure";technique="T1110";name="Brute Force"}
- if(!severity)return null;
- const ips=[...new Set([sourceIp,destIp,...(message.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)||[])].filter(Boolean))];
- return {incident_id:"INC-LOCAL-"+Date.now(),alert:{alert_id:"ALT-LOCAL-"+Date.now(),event_id:"EVT-LOCAL-"+Date.now(),title:"Detected security event",severity,confidence:.85,reason},status:"open",findings:[reason,"Detection confidence: 85%",`Mapped to MITRE ATT&CK ${technique}: ${name}.`],recommendations:["Preserve relevant logs and evidence.","Validate the finding with a human analyst before containment."],iocs:{ipv4:ips,sha256:[]},mitre:{technique_id:technique,technique_name:name}};
-}
-document.getElementById("apiKey").value=localStorage.getItem("soc_api_key") || "";
-document.getElementById("apiKey").addEventListener("change",e=>{localStorage.setItem("soc_api_key",e.target.value.trim());updateAuthStatus(false);});
-updateAuthStatus();
-async function ingest(){
- const message=document.getElementById("message").value,sourceIp=document.getElementById("sourceIp").value,destIp=document.getElementById("destIp").value;
- const event={event_id:"EVT-"+Date.now(),source:"dashboard",event_type:"security_event",source_ip:sourceIp,destination_ip:destIp,message};
- if(!API_BASE){document.getElementById("notice").textContent="Production API is not configured.";return;}
- if(!localStorage.getItem("soc_api_key")){document.getElementById("notice").textContent="Connect with a valid API key first.";return;}
- try{
-  const r=await fetch(API_BASE+"/api/events",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify(event)});
-  const body=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(body.detail||("API "+r.status));
-  if(body.incident)localIncidents.push(body.incident);
-  document.getElementById("mode").textContent="LIVE API";
-  document.getElementById("notice").textContent="Event processed by FastAPI backend.";
-  renderIncidents(localIncidents);
-  if(body.incident)showIncident(body.incident.incident_id);
- }catch(e){document.getElementById("notice").textContent="Event ingestion failed: "+e.message;}
-}
-
-function simulate(){document.getElementById("message").value="SQL injection detected from 203.0.113.50";document.getElementById("sourceIp").value="203.0.113.50";ingest()}
-
-async function loadMe(){
- if(!API_BASE)return;
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/me",{headers:{...API_HEADERS()}});
-  if(!r.ok){updateAuthStatus(false);return;}
-  const d=await r.json(); updateAuthStatus(true);
-  window.socRole=d.role||"unknown";
-  document.getElementById("roleBadge").textContent=(d.role||"unknown").toUpperCase()+" • "+d.actor;
-  const set=(id,v)=>{document.getElementById(id).textContent=v?"YES":"NO";document.getElementById(id).className=v?"text-emerald-400":"text-slate-600";};
-  set("permIngest",d.permissions.ingest);set("permAck",d.permissions.acknowledge);set("permApprove",d.permissions.approve);set("permResolve",d.permissions.resolve);set("permMonitor",d.permissions.website_monitor);set("permAudit",d.permissions.audit_logs);
-  document.getElementById("adminConsole").classList.toggle("hidden",!d.permissions.audit_logs);
-  document.getElementById("addMonitorBtn").disabled=!d.permissions.website_monitor;
-  if(d.permissions.audit_logs){loadAuditLogs();document.getElementById("keyManager").classList.remove("hidden");loadKeys();}
-  loadMonitorTargets();
- }catch(e){}
-}
-
-async function runPublicTest(){
- const url=document.getElementById("publicTestUrl").value.trim();
- const box=document.getElementById("publicTestResult");
- if(!url){box.classList.remove("hidden");box.innerHTML='<div class="text-xs text-amber-300">Enter a public HTTPS URL.</div>';return;}
- box.classList.remove("hidden");
- box.innerHTML='<div class="text-xs text-slate-400">Running one-time security test…</div>';
- try{
-  const r=await fetch(API_BASE+"/api/public/security-test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url,name:null})});
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d.detail||("API "+r.status));
-  const tls=d.tls||{};
-  const missing=(d.missing_security_headers||[]).length;
-  const statusClass=d.status==="up"?"text-emerald-400":d.status==="down"?"text-red-400":"text-amber-300";
-  box.innerHTML=`<div class="flex items-center justify-between"><div class="font-semibold">${esc(d.url)}</div><span class="${statusClass}">${esc((d.status||"unknown").toUpperCase())}</span></div>
-    <div class="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-      <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">HTTP</span><div class="mt-1">${d.status_code??"N/A"}</div></div>
-      <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">Response</span><div class="mt-1">${d.response_ms??"N/A"} ms</div></div>
-      <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">TLS</span><div class="mt-1">${tls.valid?(tls.days_to_expiry==null?"Valid":tls.days_to_expiry+"d"):"Error"}</div></div>
-      <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">Headers</span><div class="mt-1">${missing} missing</div></div>
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+    <div>
+      <div class="text-xl font-bold">Multi-Agent SOC</div>
+      <div class="text-xs text-slate-400">Public Product Test</div>
     </div>
-    <div class="mt-3 text-xs text-slate-500">Final URL: ${esc(d.final_url||d.url)}</div>
-    ${(d.findings||[]).length?`<div class="mt-3 rounded border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">${d.findings.slice(0,8).map(v=>"<div>• "+esc(v)+"</div>").join("")}</div>`:'<div class="mt-3 text-xs text-emerald-300">No findings detected by this one-time test.</div>'}
-    <div class="mt-3 text-xs text-slate-600">This result is not stored as an admin monitoring target.</div>`;
- }catch(e){box.innerHTML='<div class="text-xs text-red-300">Test failed: '+esc(e.message)+'</div>';}
-}
+    <div class="flex items-center gap-3">
+      <span class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-400">PUBLIC TEST</span>
+      <a href="./admin.html" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Admin Console</a>
+    </div>
+  </div>
+</header>
+<main class="mx-auto max-w-6xl px-6 py-8">
+  <section class="mb-8">
+    <h1 class="text-3xl font-bold">Try the SOC Workflow</h1>
+    <p class="mt-2 max-w-3xl text-slate-400">
+      Safe product demonstration. This page does not connect to the production SOC backend,
+      store incidents, access API keys, or expose administrative data.
+    </p>
+  </section>
 
-async function loadMonitorTargets(){
- if(!API_BASE)return;
- try{
-  const r=await fetch(API_BASE+"/api/monitor/targets",{headers:{...API_HEADERS()}});
-  if(!r.ok)throw new Error("Monitor API "+r.status);
-  const rows=await r.json();
-  document.getElementById("monitorCount").textContent=rows.length+" target"+(rows.length===1?"":"s");
-  const canAdmin=window.socRole==="admin";
-  document.getElementById("monitorTargets").innerHTML=rows.length?rows.map(x=>{
-    const tls=x.tls||{}, missing=x.missing_security_headers||[], findings=x.findings||[];
-    const statusClass=x.status==="up"?"bg-emerald-500/10 text-emerald-400":x.status==="down"?"bg-red-500/10 text-red-400":"bg-amber-500/10 text-amber-400";
-    const tlsText=tls.valid?(tls.days_to_expiry==null?"TLS valid":("TLS "+tls.days_to_expiry+"d")):"TLS error";
-    return `<div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0"><div class="font-medium truncate">${esc(x.name||x.url)}</div><div class="text-xs text-slate-500 break-all">${esc(x.url)}</div></div>
-        <span class="rounded-full px-3 py-1 text-xs ${statusClass}">${esc((x.status||"unknown").toUpperCase())}</span>
+  <section class="grid gap-6 lg:grid-cols-2">
+    <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+      <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Security Event Test</h2><span class="text-xs text-slate-500">Local simulation</span></div>
+      <div class="mt-4 space-y-3">
+        <select id="attackType" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm">
+          <option value="sql">SQL Injection</option>
+          <option value="ransomware">Ransomware Activity</option>
+          <option value="malware">Malware Detection</option>
+          <option value="login">Suspicious Login</option>
+        </select>
+        <button onclick="runAttackTest()" class="w-full rounded-lg bg-sky-500 p-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Run Test</button>
       </div>
-      <div class="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">HTTP</span><div class="mt-1">${x.status_code??"N/A"}</div></div>
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">Response</span><div class="mt-1">${x.response_ms==null?"N/A":x.response_ms+" ms"}</div></div>
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">TLS</span><div class="mt-1">${esc(tlsText)}</div></div>
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">Headers</span><div class="mt-1">${missing.length} missing</div></div>
-      </div>
-      <div class="mt-2 text-xs text-slate-500">Last checked: ${x.last_checked?new Date(x.last_checked).toLocaleString():"never"} • Content: ${x.content_hash?esc(x.content_hash.slice(0,12))+"…":"N/A"}</div>
-      ${findings.length?`<div class="mt-3 rounded border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">${findings.slice(0,4).map(v=>"<div>• "+esc(v)+"</div>").join("")}</div>`:""}
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button onclick="checkMonitor('${esc(x.target_id)}')" class="rounded-lg border border-slate-700 px-3 py-1 text-xs">Check Now</button>
-        <button onclick="loadMonitorHistory('${esc(x.target_id)}','${esc(x.name||x.url)}')" class="rounded-lg border border-slate-700 px-3 py-1 text-xs">History</button>
-        ${canAdmin?`<button onclick="deleteMonitor('${esc(x.target_id)}')" class="rounded-lg border border-red-500/30 px-3 py-1 text-xs text-red-300">Remove</button>`:""}
-      </div>
-    </div>`;
-  }).join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500">No monitored websites yet.</div>';
- }catch(e){document.getElementById("monitorTargets").innerHTML='<div class="text-xs text-slate-500">Connect to the backend to use website monitoring.</div>';}
-}
-async function loadMonitorHistory(id,name){
- try{
-  const r=await fetch(API_BASE+"/api/monitor/targets/"+encodeURIComponent(id)+"/history",{headers:{...API_HEADERS()}});
-  const d=await r.json().catch(()=>[]);
-  if(!r.ok)throw new Error(d.detail||("API "+r.status));
-  const box=document.getElementById("monitorHistory");
-  box.classList.remove("hidden");
-  box.innerHTML="<div class='flex items-center justify-between'><div class='text-sm font-semibold'>Check History • "+esc(name)+"</div><button onclick=\"document.getElementById('monitorHistory').classList.add('hidden')\" class='text-xs text-slate-400'>Close</button></div>"+(d.length?`<div class="mt-3 space-y-2">${d.map(x=>`<div class="flex items-start justify-between rounded border border-slate-800 p-2 text-xs"><div><div>${new Date(x.checked_at).toLocaleString()} • ${esc((x.status||"unknown").toUpperCase())} • HTTP ${x.status_code??"N/A"} • ${x.response_ms??"N/A"}ms</div>${(x.findings||[]).slice(0,2).map(v=>`<div class="mt-1 text-amber-200">• ${esc(v)}</div>`).join("")}</div></div>`).join("")}</div>`:'<div class="mt-3 text-xs text-slate-500">No history yet.</div>');
- }catch(e){document.getElementById("notice").textContent="History load failed: "+e.message;}
-}
-async function deleteMonitor(id){
- if(!confirm("Remove this monitoring target?"))return;
- try{
-  const r=await fetch(API_BASE+"/api/monitor/targets/"+encodeURIComponent(id),{method:"DELETE",headers:{...API_HEADERS()}});
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d.detail||("API "+r.status));
-  document.getElementById("notice").textContent="Monitoring target removed.";
-  document.getElementById("monitorHistory").classList.add("hidden");
-  loadMonitorTargets();
- }catch(e){document.getElementById("notice").textContent="Remove failed: "+e.message;}
-}
+      <div id="attackResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
+    </div>
 
-async function addMonitor(){
- if(!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API first.";return;}
- const url=document.getElementById("monitorUrl").value.trim(), name=document.getElementById("monitorName").value.trim();
- if(!url)return;
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/monitor/targets",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify({url,name:name||null})});
-  if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||"API "+r.status);}
-  document.getElementById("monitorUrl").value="";document.getElementById("monitorName").value="";
-  document.getElementById("notice").textContent="Website added to backend monitoring.";
-  loadMonitorTargets();
- }catch(e){document.getElementById("notice").textContent="Monitor add failed: "+e.message;}
+    <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+      <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Web Monitoring Test</h2><span class="text-xs text-slate-500">Safe simulation</span></div>
+      <div class="mt-4 space-y-3">
+        <input id="webTarget" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com" value="https://example.com">
+        <button onclick="runWebTest()" class="w-full rounded-lg bg-emerald-500 p-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Test Monitoring Workflow</button>
+      </div>
+      <div id="webResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
+    </div>
+  </section>
+
+  <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
+    <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Demo Result</h2><span id="demoStatus" class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">No test run</span></div>
+    <div class="mt-4 grid gap-3 sm:grid-cols-4">
+      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Severity</div><div id="demoSeverity" class="mt-1 font-semibold">N/A</div></div>
+      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">MITRE</div><div id="demoMitre" class="mt-1 font-semibold">N/A</div></div>
+      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Detection</div><div id="demoDetection" class="mt-1 font-semibold">N/A</div></div>
+      <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Response</div><div id="demoResponse" class="mt-1 font-semibold">Human approval</div></div>
+    </div>
+  </section>
+
+  <section class="mt-6 rounded-xl border border-amber-500/20 bg-slate-900 p-6">
+    <h2 class="text-lg font-semibold">Production Admin</h2>
+    <p class="mt-2 text-sm text-slate-400">Real incidents, monitored websites, API key management, audit logs, approvals, and monitoring history are available only in the authenticated Admin Console.</p>
+    <a href="./admin.html" class="mt-4 inline-flex rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-white">Open Admin Console</a>
+  </section>
+
+  <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-600">Public demonstration only • No production backend access</footer>
+</main>
+
+<script>
+const attackScenarios = {
+  sql:{title:"Detected: SQL injection",severity:"HIGH",mitre:"T1190",detection:"Potential SQL injection activity detected",response:"Preserve evidence and validate before containment"},
+  ransomware:{title:"Detected: ransomware activity",severity:"CRITICAL",mitre:"T1486",detection:"Potential ransomware activity detected",response:"Human-approved containment workflow"},
+  malware:{title:"Detected: malware",severity:"CRITICAL",mitre:"T1204",detection:"Potential malware activity detected",response:"Human-approved response required"},
+  login:{title:"Detected: suspicious login",severity:"MEDIUM",mitre:"T1110",detection:"Repeated or suspicious authentication failure",response:"Investigate authentication activity"}
+};
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function showDemo(s){
+ document.getElementById("demoStatus").textContent="Test completed";
+ document.getElementById("demoStatus").className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400";
+ document.getElementById("demoSeverity").textContent=s.severity;
+ document.getElementById("demoMitre").textContent=s.mitre;
+ document.getElementById("demoDetection").textContent="Triggered";
+ document.getElementById("demoResponse").textContent=s.response;
 }
-async function checkMonitor(id){
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/monitor/targets/"+encodeURIComponent(id)+"/check",{method:"POST",headers:{...API_HEADERS()}});
-  if(!r.ok)throw new Error("API "+r.status);
-  const d=await r.json();document.getElementById("notice").textContent="Website check: "+d.status+" ("+(d.response_ms??"N/A")+"ms).";loadMonitorTargets();loadLive();loadMe();
- }catch(e){document.getElementById("notice").textContent="Website check failed: "+e.message;}
+function runAttackTest(){
+ const s=attackScenarios[document.getElementById("attackType").value], box=document.getElementById("attackResult");
+ box.classList.remove("hidden");
+ box.innerHTML="<div class='font-semibold'>"+esc(s.title)+"</div><div class='mt-2 text-xs text-slate-400'>"+esc(s.detection)+"</div><div class='mt-3 grid gap-2 sm:grid-cols-3 text-xs'><div class='rounded bg-slate-900 p-2'>Severity: "+esc(s.severity)+"</div><div class='rounded bg-slate-900 p-2'>MITRE: "+esc(s.mitre)+"</div><div class='rounded bg-slate-900 p-2'>Governance: Human approval</div></div>";
+ showDemo(s);
 }
-async function loadKeys(){if(!API_BASE)return;try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys",{headers:{...API_HEADERS()}});if(!r.ok)throw new Error();const rows=await r.json();document.getElementById("keyManager").classList.remove("hidden");document.getElementById("keyList").innerHTML=rows.length?rows.map(x=>`<div class="flex items-center justify-between rounded border border-slate-800 p-2 text-xs"><span>${esc(x.name)} • ${esc(x.role)}</span><span>${x.revoked_at?"REVOKED":"ACTIVE"} ${x.revoked_at?"":"<button class='ml-2 text-red-400' onclick=\"revokeKey('"+esc(x.key_id)+"')\">Revoke</button>"}</span></div>`).join(""):"<span class='text-slate-500'>No managed keys.</span>"}catch(e){document.getElementById("keyManager").classList.add("hidden")}}
-async function createKey(){const name=document.getElementById("keyName").value.trim(),role=document.getElementById("keyRole").value;if(!name)return;const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify({name,role})});const d=await r.json();if(!r.ok){document.getElementById("notice").textContent=d.detail||"Key generation failed";return}document.getElementById("newKey").classList.remove("hidden");document.getElementById("newKeyValue").textContent=d.api_key;document.getElementById("keyName").value="";loadKeys()}
-async function revokeKey(id){const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/admin/api-keys/"+encodeURIComponent(id)+"/revoke",{method:"POST",headers:{...API_HEADERS()}});if(r.ok)loadKeys()}
-async function loadAuditLogs(){
- if(!API_BASE)return;
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/audit-logs",{headers:{...API_HEADERS()}});
-  if(!r.ok)throw new Error("API "+r.status);
-  const rows=await r.json();
-  document.getElementById("auditLogs").innerHTML=rows.length?`<table class="w-full text-left"><thead class="text-slate-500"><tr><th class="p-2">Time</th><th class="p-2">Action</th><th class="p-2">Resource</th><th class="p-2">Actor</th></tr></thead><tbody>${rows.map(x=>`<tr class="border-t border-slate-800"><td class="p-2">${esc(new Date(x.created_at).toLocaleString())}</td><td class="p-2">${esc(x.action)}</td><td class="p-2">${esc(x.resource_id||"-")}</td><td class="p-2">${esc(x.actor)}</td></tr>`).join("")}</tbody></table>`:'<div class="text-slate-500">No audit entries yet.</div>';
- }catch(e){document.getElementById("auditLogs").textContent="Audit logs unavailable.";}
+function runWebTest(){
+ const target=document.getElementById("webTarget").value.trim(), box=document.getElementById("webResult");
+ if(!/^https:\/\//i.test(target)){box.classList.remove("hidden");box.innerHTML="<div class='text-amber-300'>Use a public HTTPS URL for the demonstration.</div>";return;}
+ const d={status:"UP",http:200,response:"142 ms",tls:"Valid",headers:"6/6 present",redirect:"Secure",content:"Fingerprint recorded"};
+ box.classList.remove("hidden");
+ box.innerHTML="<div class='font-semibold'>"+esc(target)+"</div><div class='mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4'><div class='rounded bg-slate-900 p-2'>Status: "+d.status+"</div><div class='rounded bg-slate-900 p-2'>HTTP: "+d.http+"</div><div class='rounded bg-slate-900 p-2'>TLS: "+d.tls+"</div><div class='rounded bg-slate-900 p-2'>Response: "+d.response+"</div></div><div class='mt-3 text-xs text-slate-500'>Simulated result only. The public page never sends this target to the production monitoring backend.</div>";
+ document.getElementById("demoStatus").textContent="Web test completed";
 }
-async function loadLive(){
- if(!API_BASE){renderAgents();renderIncidents([]);return;}
- try{
-  const base=API_BASE.replace(/\/$/,"");
-  const headers={...API_HEADERS()};
-  if(!headers["X-API-Key"])throw new Error("Authentication required");
-  const [a,i,m]=await Promise.all([fetch(base+"/api/agents",{headers}),fetch(base+"/api/incidents",{headers}),fetch(base+"/api/metrics",{headers})]);
-  if(a.status===401||i.status===401||m.status===401){updateAuthStatus(false);throw new Error("Authentication required");}
-  if(!a.ok||!i.ok||!m.ok)throw new Error("API unavailable");
-  updateAuthStatus(true);
-  const agentsData=await a.json(), incidentsData=await i.json(), metricsData=await m.json();
-  localIncidents=incidentsData; renderAgents(agentsData.agents); renderIncidents(localIncidents);
-  document.getElementById("m-active").textContent=metricsData.active_alerts;
-  document.getElementById("m-critical").textContent=metricsData.critical;
-  document.getElementById("m-investigating").textContent=metricsData.investigating;
-  document.getElementById("m-resolved").textContent=metricsData.resolved;document.getElementById("m-mttd").textContent=metricsData.mttd_seconds==null?"N/A":metricsData.mttd_seconds+"s";document.getElementById("m-mttr").textContent=metricsData.mttr_seconds==null?"N/A":metricsData.mttr_seconds+"s";
-  document.getElementById("mode").textContent="LIVE API";
-  document.getElementById("notice").textContent="Connected to FastAPI SOC backend.";
- }catch(e){renderAgents();renderIncidents([]);document.getElementById("notice").textContent=e.message==="Authentication required"?"API key rejected or missing. Enter a valid key.":"API unavailable, demo mode active.";updateAuthStatus(false);}
-}
-loadLive();
-loadMe();
 </script>
-</body></html>
+</body>
+</html>
