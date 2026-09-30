@@ -1,7 +1,10 @@
+import json
+import os
 import re
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from .models import SecurityEvent
-
 
 IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 HASH = re.compile(r"\b[a-fA-F0-9]{64}\b")
@@ -30,3 +33,33 @@ def map_attack_technique(event: SecurityEvent) -> dict:
         if indicator in message:
             return {"technique_id": technique_id, "technique_name": technique_name}
     return {"technique_id": None, "technique_name": None}
+
+
+def lookup_virustotal(indicator: str, timeout: float = 5.0) -> dict:
+    """Optional VirusTotal enrichment. Returns unavailable when no API key is configured."""
+    api_key = os.getenv("VIRUSTOTAL_API_KEY")
+    if not api_key:
+        return {"provider": "virustotal", "status": "not_configured", "indicator": indicator}
+
+    url = "https://www.virustotal.com/api/v3/search?query=" + indicator
+    request = Request(url, headers={"x-apikey": api_key, "Accept": "application/json"})
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return {"provider": "virustotal", "status": "ok", "indicator": indicator, "data": payload.get("data", [])[:5]}
+    except HTTPError as exc:
+        return {"provider": "virustotal", "status": "error", "indicator": indicator, "detail": f"HTTP {exc.code}"}
+    except (URLError, TimeoutError, ValueError) as exc:
+        return {"provider": "virustotal", "status": "error", "indicator": indicator, "detail": str(exc)}
+
+
+def enrich_indicator(indicator: str) -> dict:
+    return lookup_virustotal(indicator)
+
+
+def enrich_event(event: SecurityEvent) -> dict:
+    iocs = extract_iocs(event)
+    results = []
+    for indicator in iocs["ipv4"] + iocs["sha256"]:
+        results.append(enrich_indicator(indicator))
+    return {"iocs": iocs, "lookups": results}
