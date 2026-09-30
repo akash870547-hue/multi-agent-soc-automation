@@ -35,10 +35,14 @@ class Incident(BaseModel):
     incident_id: str
     alert: Alert
     status: str = "open"
+    detected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
     findings: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
     iocs: dict[str, list[str]] = Field(default_factory=lambda: {"ipv4": [], "sha256": []})
     mitre: dict = Field(default_factory=dict)
+    correlation: dict = Field(default_factory=dict)
     approved_actions: list[str] = Field(default_factory=list)
     governance: dict = Field(default_factory=lambda: {"approval_required": True, "approved": False})
     reasoning: dict = Field(default_factory=dict)
