@@ -3,127 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Multi-Agent SOC | Sign in</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<meta http-equiv="refresh" content="0;url=./public.html">
+<title>Multi-Agent SOC</title>
+<style>
+html,body{height:100%;margin:0;background:#020617;color:#e2e8f0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{height:100%;display:grid;place-items:center}
+a{color:#7dd3fc}
+</style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
-<div class="min-h-screen flex items-center justify-center px-6">
-  <div class="w-full max-w-md">
-    <div class="text-center mb-8">
-      <div class="text-3xl font-bold">Multi-Agent SOC</div>
-      <div class="mt-2 text-sm text-slate-400">Secure Operations Console</div>
-    </div>
-
-    <div id="loginCard" class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-semibold">Sign in</h1>
-          <p class="mt-1 text-xs text-slate-500">Admin and Analyst accounts</p>
-        </div>
-        <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">AUTHENTICATED</span>
-      </div>
-
-      <form id="loginForm" class="mt-6 space-y-4">
-        <div>
-          <label class="text-sm text-slate-300">Account type</label>
-          <select id="accountType" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm">
-            <option value="admin">Admin</option>
-            <option value="analyst">Analyst</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="text-sm text-slate-300">Username</label>
-          <input id="username" autocomplete="username" required class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Enter username">
-        </div>
-
-        <div>
-          <label class="text-sm text-slate-300">Password</label>
-          <input id="password" type="password" autocomplete="current-password" required class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Enter password">
-        </div>
-
-        <button id="loginBtn" type="submit" class="w-full rounded-lg bg-emerald-500 p-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">
-          Sign in
-        </button>
-        <div id="error" class="hidden rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300"></div>
-      </form>
-
-      <div class="mt-6 border-t border-slate-800 pt-5">
-        <div class="text-xs text-slate-500">Need a public demonstration?</div>
-        <a href="./public.html" class="mt-2 inline-flex rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Open Public Test</a>
-      </div>
-
-      <div class="mt-5 rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-500">
-        <div class="font-semibold text-slate-300">Roles</div>
-        <div class="mt-1">Admin: full console + credential management</div>
-        <div>Analyst: operations access without admin credential management</div>
-        <div>Super Admin: reserved for future expansion</div>
-      </div>
-    </div>
+<body>
+<main>
+  <div>
+    <div style="font-size:24px;font-weight:700">Multi-Agent SOC</div>
+    <div style="margin-top:8px;color:#94a3b8">Opening the public demonstration…</div>
+    <div style="margin-top:12px;font-size:13px">Continue to <a href="./public.html">Public Demonstration</a></div>
   </div>
-</div>
-
-<script>
-const API_BASE = "https://multi-agent-soc-api.onrender.com";
-
-function esc(s){
-  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-}
-
-function setError(message){
-  const box=document.getElementById("error");
-  box.textContent=message;
-  box.classList.toggle("hidden",!message);
-}
-
-async function checkExistingSession(){
-  const token=localStorage.getItem("soc_api_key");
-  if(!token)return;
-  try{
-    const r=await fetch(API_BASE+"/api/me",{headers:{"X-API-Key":token}});
-    if(r.ok){
-      location.href="./admin.html";
-    }else{
-      localStorage.removeItem("soc_api_key");
-      localStorage.removeItem("soc_user");
-    }
-  }catch(e){}
-}
-
-document.getElementById("loginForm").addEventListener("submit",async e=>{
-  e.preventDefault();
-  setError("");
-  const btn=document.getElementById("loginBtn");
-  btn.disabled=true;
-  btn.textContent="Signing in...";
-  try{
-    const selectedRole=document.getElementById("accountType").value;
-    const username=document.getElementById("username").value.trim();
-    const password=document.getElementById("password").value;
-
-    const r=await fetch(API_BASE+"/api/auth/login",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({username,password})
-    });
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(d.detail||("Login failed (HTTP "+r.status+")"));
-    if(d.role!==selectedRole){
-      throw new Error("This username belongs to the "+d.role+" role. Select the matching account type.");
-    }
-
-    localStorage.setItem("soc_api_key",d.session_token);
-    localStorage.setItem("soc_user",JSON.stringify({username:d.username,role:d.role}));
-    location.href="./admin.html";
-  }catch(err){
-    setError(err.message);
-  }finally{
-    btn.disabled=false;
-    btn.textContent="Sign in";
-  }
-});
-
-checkExistingSession();
-</script>
+</main>
+<script>location.replace("./public.html");</script>
 </body>
 </html>
