@@ -170,6 +170,7 @@ async function loadMe(){
   const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/me",{headers:{...API_HEADERS()}});
   if(!r.ok){updateAuthStatus(false);return;}
   const d=await r.json(); updateAuthStatus(true);
+  window.socRole=d.role||"unknown";
   document.getElementById("roleBadge").textContent=(d.role||"unknown").toUpperCase()+" • "+d.actor;
   const set=(id,v)=>{document.getElementById(id).textContent=v?"YES":"NO";document.getElementById(id).className=v?"text-emerald-400":"text-slate-600";};
   set("permIngest",d.permissions.ingest);set("permAck",d.permissions.acknowledge);set("permApprove",d.permissions.approve);set("permResolve",d.permissions.resolve);set("permMonitor",d.permissions.website_monitor);set("permAudit",d.permissions.audit_logs);
