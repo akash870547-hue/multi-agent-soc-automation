@@ -72,3 +72,10 @@ def test_evaluation_dataset_produces_classification_metrics():
     assert 0.0 <= result["precision"] <= 1.0
     assert 0.0 <= result["recall"] <= 1.0
     assert 0.0 <= result["f1"] <= 1.0
+
+
+def test_api_module_exposes_rbac_helpers():
+    from soc_automation.api import authenticate, require_role
+
+    assert authenticate(None) == ("local", "admin")
+    assert require_role(None, {"admin"}) == ("local", "admin")
