@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from datetime import datetime, timezone\nfrom fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .models import SecurityEvent
 from .pipeline import process_event
@@ -40,7 +40,7 @@ def list_incidents():
     return list(incidents.values())
 
 
-@app.get("/api/incidents/{incident_id}")
+@app.post("/api/incidents/{incident_id}/approve")\ndef approve_incident(incident_id: str):\n    incident = incidents.get(incident_id)\n    if not incident:\n        raise HTTPException(status_code=404, detail="Incident not found")\n    incident["governance"]["approved"] = True\n    incident["governance"]["approved_at"] = datetime.now(timezone.utc).isoformat()\n    incident["approved_actions"] = incident["recommendations"]\n    return incident\n\n\n@app.get("/api/incidents/{incident_id}")
 def get_incident(incident_id: str):
     incident = incidents.get(incident_id)
     if not incident:
