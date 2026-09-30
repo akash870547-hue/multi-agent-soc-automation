@@ -9,8 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .correlation import correlate_event
 from .models import SecurityEvent
 from .pipeline import process_event
+from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.3.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,7 +44,7 @@ def init_db():
         )
         connection.execute(
             """
-            CREATE TABLE IF NOT EXISTS incidents (
+            CREATE TABLE IF NOT EXISTS audit_logs (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                action TEXT NOT NULL,\n                resource_id TEXT,\n                actor TEXT NOT NULL,\n                created_at TEXT NOT NULL\n            )\n            """\n        )\n        connection.execute(\n            """\n            CREATE TABLE IF NOT EXISTS incidents (
                 incident_id TEXT PRIMARY KEY,
                 payload TEXT NOT NULL,
                 updated_at TEXT NOT NULL
