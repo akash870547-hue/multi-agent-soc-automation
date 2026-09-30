@@ -11,6 +11,16 @@
   .demo-complete{box-shadow:0 0 0 1px rgba(16,185,129,.20)}
   .report-paper{background:#fff;color:#111827}
   .print-only{display:none}
+  body{transition:background-color .2s ease,color .2s ease}
+  body[data-theme="light"]{background:#f8fafc!important;color:#0f172a!important}
+  body[data-theme="light"] .bg-slate-950,body[data-theme="light"] .bg-slate-900{background:#fff!important}
+  body[data-theme="light"] .border-slate-800,body[data-theme="light"] .border-slate-700{border-color:#dbe3ef!important}
+  body[data-theme="light"] .text-slate-100{color:#0f172a!important}
+  body[data-theme="light"] .text-slate-400{color:#475569!important}
+  body[data-theme="light"] .text-slate-500,body[data-theme="light"] .text-slate-600{color:#64748b!important}
+  body[data-theme="light"] input,body[data-theme="light"] select{background:#fff!important;color:#0f172a!important;border-color:#cbd5e1!important}
+  body[data-theme="light"] header{background:rgba(255,255,255,.94)!important;border-color:#dbe3ef!important}
+  #nameGate{z-index:100}#authModal{z-index:110}
   @media print{
     body{background:#fff!important}
     body *{visibility:hidden!important}
@@ -20,7 +30,35 @@
   }
 </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
+<body id="publicRoot" class="min-h-screen bg-slate-950 text-slate-100" data-theme="dark">
+<div id="nameGate" class="fixed inset-0 flex min-h-screen items-center justify-center bg-slate-950/90 p-5 backdrop-blur-md">
+  <div class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-7 shadow-2xl">
+    <div class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-400">Security Demonstration</div>
+    <h1 class="mt-2 text-2xl font-bold">Welcome</h1>
+    <p class="mt-2 text-sm leading-6 text-slate-400">Enter your name to continue. Your participant name will be visible to the SOC administrator for this demonstration.</p>
+    <input id="participantName" maxlength="80" autocomplete="name" class="mt-5 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm outline-none focus:border-sky-500" placeholder="Enter your name">
+    <button onclick="saveParticipant()" class="mt-3 w-full rounded-lg bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Continue</button>
+    <div id="participantStatus" class="mt-3 min-h-5 text-xs text-slate-500">Name is required.</div>
+    <div class="mt-5 border-t border-slate-800 pt-4 text-xs text-slate-500">No passwords or sensitive information should be entered here.</div>
+  </div>
+</div>
+<div id="authModal" class="fixed inset-0 hidden items-center justify-center bg-slate-950/75 p-5 backdrop-blur-sm">
+  <div class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+    <div class="flex items-center justify-between"><div><div class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">Console Access</div><h2 class="mt-1 text-xl font-bold">Login / Register</h2></div><button onclick="closeAuth()" class="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-400 hover:bg-slate-800">Close</button></div>
+    <div class="mt-5 grid grid-cols-2 rounded-lg border border-slate-800 bg-slate-950 p-1">
+      <button id="authLoginTab" onclick="setAuthMode('login')" class="rounded-md bg-slate-800 px-3 py-2 text-xs font-semibold">Login</button>
+      <button id="authRegisterTab" onclick="setAuthMode('register')" class="rounded-md px-3 py-2 text-xs text-slate-400">Register</button>
+    </div>
+    <form id="authForm" class="mt-5 space-y-3" onsubmit="submitAuth(event)">
+      <input id="authUsername" maxlength="40" autocomplete="username" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Username" required>
+      <input id="authPassword" minlength="12" autocomplete="current-password" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Password" type="password" required>
+      <div id="registerRoleWrap" class="hidden"><select id="authRegisterRole" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm"><option value="analyst">Analyst account</option><option value="admin">Admin account (restricted)</option></select></div>
+      <div id="authMessage" class="min-h-5 text-xs text-slate-500">Admin and Analyst credentials are supported.</div>
+      <button id="authSubmit" class="w-full rounded-lg bg-sky-500 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Sign in</button>
+    </form>
+    <div class="mt-4 text-xs text-slate-500">Admin accounts are provisioned by an administrator. Public registration creates Analyst access only.</div>
+  </div>
+</div>
 
 <header class="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
   <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -29,8 +67,9 @@
       <div class="text-xs text-slate-400">Interactive Security Demonstration</div>
     </div>
     <div class="flex items-center gap-2">
-      <span class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-400">PUBLIC DEMO</span>
-      <span id="visitorState" class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">● ACTIVE</span>
+      <button id="publicThemeButton" onclick="togglePublicTheme()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Light mode</button>
+      <button onclick="openAuth('login')" class="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-500/20">Login / Register</button>
+      <span id="visitorState" class="hidden rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">● ACTIVE</span>
     </div>
   </div>
 </header>
@@ -45,28 +84,10 @@
   </div>
 </section>
 
-<section class="rounded-2xl border border-sky-500/20 bg-slate-900 p-6 shadow-2xl shadow-sky-950/10">
-  <div class="grid gap-6 lg:grid-cols-[1fr_1fr]">
-    <div>
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Participant details</div>
-      <h2 class="mt-1 text-xl font-semibold">Who is running this demonstration?</h2>
-      <p class="mt-2 text-xs leading-5 text-slate-500">Your name is shared with the SOC administrator as part of this product demonstration. Please do not enter passwords or other sensitive information.</p>
-      <div class="mt-4 flex gap-2">
-        <input id="participantName" maxlength="80" autocomplete="name" class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Enter your name">
-        <button onclick="saveParticipant()" class="rounded-lg bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Continue</button>
-      </div>
-      <div id="participantStatus" class="mt-2 text-xs text-slate-500">Name required before running the demo.</div>
-    </div>
-
-    <div class="rounded-xl border border-slate-800 bg-slate-950 p-5">
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Demo mode</div>
-      <div class="mt-2 grid gap-3 sm:grid-cols-3">
-        <div><div class="text-xs text-slate-500">Execution</div><div class="mt-1 font-semibold text-emerald-400">Synthetic</div></div>
-        <div><div class="text-xs text-slate-500">Production SOC</div><div class="mt-1 font-semibold">Isolated</div></div>
-        <div><div class="text-xs text-slate-500">Response</div><div class="mt-1 font-semibold">Human approved</div></div>
-      </div>
-      <div class="mt-4 rounded-lg border border-slate-800 p-3 text-xs text-slate-500">Every workflow step remains on screen after completion, so a visitor can read the full detection and response chain before generating the report.</div>
-    </div>
+<section id="sessionCard" class="rounded-2xl border border-sky-500/20 bg-slate-900 p-5 shadow-2xl shadow-sky-950/10">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Session</div><div class="mt-1 text-lg font-semibold">Participant: <span id="sessionParticipant">-</span></div><div class="mt-1 text-xs text-slate-500">Your name is shared with the SOC administrator for demo activity tracking.</div></div>
+    <button onclick="renameParticipant()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Change name</button>
   </div>
 </section>
 
@@ -159,27 +180,27 @@
   <div id="webResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
 </section>
 
-<footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-600">Public demonstration only. Production SOC incidents, credentials, audit logs and customer monitoring remain behind authenticated access.</footer>
+<footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-600">Synthetic security demonstration. Console access is protected by authentication.</footer>
 </main>
 
 <script>
-const API_BASE=(new URLSearchParams(location.search).get("api") || "https://multi-agent-soc-api.onrender.com").replace(/\/$/,"");
+const API_BASE="https://multi-agent-soc-api.onrender.com";
 const VISITOR_KEY="soc_public_visitor_id";
 const NAME_KEY="soc_public_participant_name";
 const VISITOR_ID=localStorage.getItem(VISITOR_KEY) || ("pub_"+crypto.randomUUID());
 localStorage.setItem(VISITOR_KEY,VISITOR_ID);
 
 const attackProfiles={
- sql:{key:"sql",title:"SQL Injection",severity:"HIGH",id:"T1190",name:"Exploit Public-Facing Application",tactic:"Initial Access",detection:"Suspicious SQL injection payload targeting a public-facing application.",asset:"Customer-facing web application",ioc:["Source IP: 203.0.113.50","Request path: /login","Payload marker: UNION SELECT"],correlation:"Multiple requests from the same source IP targeted database-backed endpoints within a short window.",investigation:"Review WAF logs, application logs and database audit records. Validate whether authentication or sensitive records were accessed.",reasoning:"The source repeatedly targeted a public-facing application using a database-oriented injection pattern. The evidence supports a high-priority web exploitation investigation.",response:"Block the source at the edge, preserve application/database evidence, validate affected endpoints and rotate exposed application secrets if compromise is confirmed.",impact:"Potential unauthorized database access or data exposure."},
- ransomware:{key:"ransomware",title:"Ransomware Activity",severity:"CRITICAL",id:"T1486",name:"Data Encrypted for Impact",tactic:"Impact",detection:"Multiple file-encryption indicators and suspicious mass file modifications were detected.",asset:"Windows file server",ioc:["Process: demo-encryptor.exe","Host: FILESRV-02","Pattern: high-volume file writes"],correlation:"Encryption activity aligns with a related suspicious process event on the same host.",investigation:"Isolate the affected host, preserve volatile evidence, identify encryption scope and inspect recent lateral movement activity.",reasoning:"The pattern indicates potential destructive impact against business data. Rapid containment and evidence preservation are prioritized.",response:"Isolate affected endpoint, protect backups, block the simulated process and begin recovery/forensic procedures.",impact:"Potential loss of availability and integrity of business data."},
- bruteforce:{key:"bruteforce",title:"Brute Force",severity:"HIGH",id:"T1110",name:"Brute Force",tactic:"Credential Access",detection:"Repeated failed authentication attempts were detected against a privileged account.",asset:"VPN authentication service",ioc:["Username: admin-demo","Source IP: 198.51.100.25","Failed attempts: 48"],correlation:"Authentication failures are clustered by source IP and targeted account within the correlation window.",investigation:"Review VPN authentication logs, source reputation, successful sessions and MFA challenges around the same period.",reasoning:"High-volume credential guessing against a privileged account indicates an elevated account-takeover risk.",response:"Temporarily block the source, enforce MFA checks, review the targeted account and rotate credentials if compromise indicators appear.",impact:"Potential unauthorized account access."},
- phishing:{key:"phishing",title:"Phishing Link",severity:"HIGH",id:"T1566.002",name:"Phishing: Spearphishing Link",tactic:"Initial Access",detection:"A suspicious link-delivery event was detected in a simulated mailbox.",asset:"Employee email account",ioc:["Sender: alerts-demo@example.invalid","URL: hxxps://login-demo.invalid","Recipient: finance-demo"],correlation:"The same sender and URL appear in multiple simulated delivery events.",investigation:"Inspect mail headers, recipient activity and click telemetry. Reset affected credentials if the lure was opened.",reasoning:"The attack pattern attempts to establish an initial foothold by directing users to a deceptive destination.",response:"Quarantine the message, block the domain, invalidate affected sessions and review identity-provider logs.",impact:"Potential credential theft and initial compromise."},
- powershell:{key:"powershell",title:"PowerShell Execution",severity:"HIGH",id:"T1059.001",name:"Command and Scripting Interpreter: PowerShell",tactic:"Execution",detection:"Encoded or obfuscated PowerShell execution was detected on a workstation.",asset:"Windows workstation",ioc:["Host: WIN-DEV-07","Parent process: outlook.exe","Command marker: -enc"],correlation:"PowerShell execution is correlated with a suspicious document-open event on the same host.",investigation:"Review process tree, PowerShell operational logs and recent user activity. Identify any follow-on payloads.",reasoning:"The execution chain suggests script-based post-delivery activity and warrants endpoint investigation.",response:"Contain the workstation, preserve process evidence and block the simulated command lineage.",impact:"Potential code execution and follow-on payload deployment."},
- webshell:{key:"webshell",title:"Web Shell",severity:"CRITICAL",id:"T1505.003",name:"Server Software Component: Web Shell",tactic:"Persistence",detection:"A suspicious server-side script was identified in a web-accessible directory.",asset:"Linux web server",ioc:["Host: WEB-APP-01","Path: /var/www/html/uploads/cmd.php","HTTP requests: repeated POST"],correlation:"Web requests to the suspicious file correlate with unusual outbound connections.",investigation:"Inspect filesystem timestamps, web access logs, process tree and outbound connections. Determine whether persistence was established.",reasoning:"A web shell can provide repeated remote command execution on a server. The correlation with outbound traffic increases urgency.",response:"Isolate the server, remove the simulated persistence point, preserve forensic artifacts and rotate affected secrets.",impact:"Potential persistent remote control of the server."},
- networkscan:{key:"networkscan",title:"Network Service Scanning",severity:"MEDIUM",id:"T1046",name:"Network Service Scanning",tactic:"Discovery",detection:"A source generated a broad pattern of connection attempts across internal service ports.",asset:"Internal network segment",ioc:["Source: 10.20.30.45","Targets: 10.20.30.0/24","Ports: 22,80,443,445,3389"],correlation:"The scan overlaps with subsequent authentication attempts against discovered services.",investigation:"Review firewall and IDS telemetry, identify scanned assets and determine whether the source later accessed any services.",reasoning:"Broad network enumeration can indicate reconnaissance before lateral movement. The follow-on authentication pattern raises the priority.",response:"Segment the source, review discovered services and inspect subsequent authentication activity.",impact:"Potential reconnaissance preceding lateral movement."},
- cred:{key:"cred",title:"Credential Dumping",severity:"CRITICAL",id:"T1003",name:"OS Credential Dumping",tactic:"Credential Access",detection:"A simulated process attempted to access credential material from a protected operating-system location.",asset:"Windows endpoint",ioc:["Host: WIN-FIN-04","Process: demo-dump.exe","Target: LSASS memory"],correlation:"Credential-access activity follows a suspicious process launch on the same host.",investigation:"Inspect endpoint telemetry, privileged process access and any accounts used after the event.",reasoning:"Credential material access can enable rapid account takeover and lateral movement.",response:"Isolate the endpoint, reset potentially exposed credentials and investigate subsequent authentications.",impact:"Potential compromise of reusable credentials."},
- valid:{key:"valid",title:"Valid Accounts",severity:"HIGH",id:"T1078",name:"Valid Accounts",tactic:"Defense Evasion / Persistence",detection:"A login succeeded from an unusual source using a valid account.",asset:"Identity platform",ioc:["Account: finance-demo","Source: 198.51.100.77","Login time: 03:14 UTC"],correlation:"The successful login follows a sequence of failed attempts from the same source.",investigation:"Review identity-provider logs, MFA outcomes, session devices and privilege changes.",reasoning:"Successful access after repeated failures can indicate credential compromise or misuse.",response:"Revoke active sessions, reset the account credential and review privileged actions.",impact:"Potential unauthorized use of a legitimate identity."},
- malware:{key:"malware",title:"Malicious File Execution",severity:"HIGH",id:"T1204.002",name:"User Execution: Malicious File",tactic:"Execution",detection:"A user opened a simulated executable attachment from an untrusted source.",asset:"User workstation",ioc:["File: invoice_update.exe","Origin: external email","Host: WIN-ACCT-02"],correlation:"File execution correlates with a new process and outbound DNS activity.",investigation:"Review email telemetry, process tree, DNS activity and persistence indicators.",reasoning:"The event represents a common execution path in which user interaction launches a malicious payload.",response:"Contain the endpoint, quarantine the simulated file and investigate follow-on process activity.",impact:"Potential endpoint compromise and payload execution."}
+ sql:{key:"sql",title:"SQL Injection",severity:"HIGH",id:"T1190",name:"Exploit Public-Facing Application",tactic:"Initial Access",detection:"Suspicious SQL injection payload targeting a public-facing application.",asset:"Customer-facing web application",ioc:["Source IP: simulated-source","Request path: /login","Payload marker: UNION SELECT"],correlation:"Multiple requests from the same source IP targeted database-backed endpoints within a short window.",investigation:"Review WAF logs, application logs and database audit records. Validate whether authentication or sensitive records were accessed.",reasoning:"The source repeatedly targeted a public-facing application using a database-oriented injection pattern. The evidence supports a high-priority web exploitation investigation.",response:"Block the source at the edge, preserve application/database evidence, validate affected endpoints and rotate exposed application secrets if compromise is confirmed.",impact:"Potential unauthorized database access or data exposure."},
+ ransomware:{key:"ransomware",title:"Ransomware Activity",severity:"CRITICAL",id:"T1486",name:"Data Encrypted for Impact",tactic:"Impact",detection:"Multiple file-encryption indicators and suspicious mass file modifications were detected.",asset:"Windows file server",ioc:["Process: simulated-process","Host: simulated-file-server","Pattern: high-volume file writes"],correlation:"Encryption activity aligns with a related suspicious process event on the same host.",investigation:"Isolate the affected host, preserve volatile evidence, identify encryption scope and inspect recent lateral movement activity.",reasoning:"The pattern indicates potential destructive impact against business data. Rapid containment and evidence preservation are prioritized.",response:"Isolate affected endpoint, protect backups, block the simulated process and begin recovery/forensic procedures.",impact:"Potential loss of availability and integrity of business data."},
+ bruteforce:{key:"bruteforce",title:"Brute Force",severity:"HIGH",id:"T1110",name:"Brute Force",tactic:"Credential Access",detection:"Repeated failed authentication attempts were detected against a privileged account.",asset:"VPN authentication service",ioc:["Username: simulated-account","Source IP: simulated-source","Failed attempts: 48"],correlation:"Authentication failures are clustered by source IP and targeted account within the correlation window.",investigation:"Review VPN authentication logs, source reputation, successful sessions and MFA challenges around the same period.",reasoning:"High-volume credential guessing against a privileged account indicates an elevated account-takeover risk.",response:"Temporarily block the source, enforce MFA checks, review the targeted account and rotate credentials if compromise indicators appear.",impact:"Potential unauthorized account access."},
+ phishing:{key:"phishing",title:"Phishing Link",severity:"HIGH",id:"T1566.002",name:"Phishing: Spearphishing Link",tactic:"Initial Access",detection:"A suspicious link-delivery event was detected in a simulated mailbox.",asset:"Employee email account",ioc:["Sender: simulated-sender","URL: hxxps://simulated-domain","Recipient: simulated-account"],correlation:"The same sender and URL appear in multiple simulated delivery events.",investigation:"Inspect mail headers, recipient activity and click telemetry. Reset affected credentials if the lure was opened.",reasoning:"The attack pattern attempts to establish an initial foothold by directing users to a deceptive destination.",response:"Quarantine the message, block the domain, invalidate affected sessions and review identity-provider logs.",impact:"Potential credential theft and initial compromise."},
+ powershell:{key:"powershell",title:"PowerShell Execution",severity:"HIGH",id:"T1059.001",name:"Command and Scripting Interpreter: PowerShell",tactic:"Execution",detection:"Encoded or obfuscated PowerShell execution was detected on a workstation.",asset:"Windows workstation",ioc:["Host: simulated-workstation","Parent process: outlook.exe","Command marker: -enc"],correlation:"PowerShell execution is correlated with a suspicious document-open event on the same host.",investigation:"Review process tree, PowerShell operational logs and recent user activity. Identify any follow-on payloads.",reasoning:"The execution chain suggests script-based post-delivery activity and warrants endpoint investigation.",response:"Contain the workstation, preserve process evidence and block the simulated command lineage.",impact:"Potential code execution and follow-on payload deployment."},
+ webshell:{key:"webshell",title:"Web Shell",severity:"CRITICAL",id:"T1505.003",name:"Server Software Component: Web Shell",tactic:"Persistence",detection:"A suspicious server-side script was identified in a web-accessible directory.",asset:"Linux web server",ioc:["Host: simulated-web-server","Path: /simulated/web/path","HTTP requests: repeated POST"],correlation:"Web requests to the suspicious file correlate with unusual outbound connections.",investigation:"Inspect filesystem timestamps, web access logs, process tree and outbound connections. Determine whether persistence was established.",reasoning:"A web shell can provide repeated remote command execution on a server. The correlation with outbound traffic increases urgency.",response:"Isolate the server, remove the simulated persistence point, preserve forensic artifacts and rotate affected secrets.",impact:"Potential persistent remote control of the server."},
+ networkscan:{key:"networkscan",title:"Network Service Scanning",severity:"MEDIUM",id:"T1046",name:"Network Service Scanning",tactic:"Discovery",detection:"A source generated a broad pattern of connection attempts across internal service ports.",asset:"Internal network segment",ioc:["Source: simulated-source","Targets: simulated-segment","Ports: 22,80,443,445,3389"],correlation:"The scan overlaps with subsequent authentication attempts against discovered services.",investigation:"Review firewall and IDS telemetry, identify scanned assets and determine whether the source later accessed any services.",reasoning:"Broad network enumeration can indicate reconnaissance before lateral movement. The follow-on authentication pattern raises the priority.",response:"Segment the source, review discovered services and inspect subsequent authentication activity.",impact:"Potential reconnaissance preceding lateral movement."},
+ cred:{key:"cred",title:"Credential Dumping",severity:"CRITICAL",id:"T1003",name:"OS Credential Dumping",tactic:"Credential Access",detection:"A simulated process attempted to access credential material from a protected operating-system location.",asset:"Windows endpoint",ioc:["Host: simulated-workstation","Process: simulated-process","Target: LSASS memory"],correlation:"Credential-access activity follows a suspicious process launch on the same host.",investigation:"Inspect endpoint telemetry, privileged process access and any accounts used after the event.",reasoning:"Credential material access can enable rapid account takeover and lateral movement.",response:"Isolate the endpoint, reset potentially exposed credentials and investigate subsequent authentications.",impact:"Potential compromise of reusable credentials."},
+ valid:{key:"valid",title:"Valid Accounts",severity:"HIGH",id:"T1078",name:"Valid Accounts",tactic:"Defense Evasion / Persistence",detection:"A login succeeded from an unusual source using a valid account.",asset:"Identity platform",ioc:["Account: simulated-account","Source: simulated-source","Login time: 03:14 UTC"],correlation:"The successful login follows a sequence of failed attempts from the same source.",investigation:"Review identity-provider logs, MFA outcomes, session devices and privilege changes.",reasoning:"Successful access after repeated failures can indicate credential compromise or misuse.",response:"Revoke active sessions, reset the account credential and review privileged actions.",impact:"Potential unauthorized use of a legitimate identity."},
+ malware:{key:"malware",title:"Malicious File Execution",severity:"HIGH",id:"T1204.002",name:"User Execution: Malicious File",tactic:"Execution",detection:"A user opened a simulated executable attachment from an untrusted source.",asset:"User workstation",ioc:["File: invoice_update.exe","Origin: external email","Host: simulated-workstation"],correlation:"File execution correlates with a new process and outbound DNS activity.",investigation:"Review email telemetry, process tree, DNS activity and persistence indicators.",reasoning:"The event represents a common execution path in which user interaction launches a malicious payload.",response:"Contain the endpoint, quarantine the simulated file and investigate follow-on process activity.",impact:"Potential endpoint compromise and payload execution."}
 };
 
 const attackOptions=Object.values(attackProfiles);
@@ -199,7 +220,7 @@ const stageDefinitions=[
  {id:"report",label:"10 • Reporting Agent",agent:"Reporting Agent",purpose:"Convert the completed investigation into a professional incident report."}
 ];
 
-let participantName=localStorage.getItem(NAME_KEY)||"";
+let participantName=sessionStorage.getItem(NAME_KEY)||"";
 let visitorReport=null;
 let mitreData={version:null,count:0,techniques:[]},mitrePageIndex=0;
 let demo={running:false,completed:-1,profile:null,startedAt:null,completedAt:null,timer:null};
@@ -208,13 +229,47 @@ function escapeHtml(v){
  return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 function currentProfile(){return attackProfiles[attackSelect.value]||attackOptions[0];}
-function ensureParticipant(){
- if(participantName && participantName.length>=2)return true;
- document.getElementById("participantName").focus();
- document.getElementById("participantStatus").textContent="Enter your name before starting the demonstration.";
- document.getElementById("participantStatus").className="mt-2 text-xs text-amber-300";
- return false;
+function setPublicTheme(theme){
+ const root=document.getElementById("publicRoot");root.dataset.theme=theme;localStorage.setItem("soc_public_theme",theme);
+ const b=document.getElementById("publicThemeButton");if(b)b.textContent=theme==="light"?"Dark mode":"Light mode";
 }
+function togglePublicTheme(){setPublicTheme(document.getElementById("publicRoot").dataset.theme==="dark"?"light":"dark");}
+function unlockPublic(){
+ document.getElementById("nameGate").classList.add("hidden");document.body.classList.remove("overflow-hidden");
+ document.getElementById("visitorState").classList.remove("hidden");
+ const sp=document.getElementById("sessionParticipant"),dp=document.getElementById("demoParticipant");if(sp)sp.textContent=participantName||"-";if(dp)dp.textContent=participantName||"Not entered";
+}
+function openNameGate(){document.getElementById("nameGate").classList.remove("hidden");document.body.classList.add("overflow-hidden");setTimeout(()=>document.getElementById("participantName")?.focus(),0);}
+function renameParticipant(){sessionStorage.removeItem(NAME_KEY);participantName="";openNameGate();}
+function ensureParticipant(){if(participantName&&participantName.length>=2)return true;openNameGate();const x=document.getElementById("participantStatus");if(x){x.textContent="Enter your name before starting the demonstration.";x.className="mt-3 text-xs text-amber-300";}return false;}
+
+let authMode="login";
+function openAuth(mode="login"){if(!ensureParticipant())return;document.getElementById("authModal").classList.remove("hidden");document.getElementById("authModal").classList.add("flex");setAuthMode(mode);setTimeout(()=>document.getElementById("authUsername")?.focus(),0);}
+function closeAuth(){const x=document.getElementById("authModal");x.classList.add("hidden");x.classList.remove("flex");}
+function setAuthMode(mode){
+ authMode=mode;const r=mode==="register";
+ document.getElementById("authLoginTab").className="rounded-md px-3 py-2 text-xs font-semibold "+(r?"text-slate-400":"bg-slate-800");
+ document.getElementById("authRegisterTab").className="rounded-md px-3 py-2 text-xs font-semibold "+(r?"bg-slate-800":"text-slate-400");
+ document.getElementById("registerRoleWrap").classList.toggle("hidden",!r);
+ document.getElementById("authPassword").autocomplete=r?"new-password":"current-password";
+ document.getElementById("authSubmit").textContent=r?"Create Analyst Account":"Sign in";
+ document.getElementById("authMessage").textContent=r?"Analyst registration is available. Admin accounts are provisioned by an administrator.":"Admin and Analyst credentials are supported.";
+ if(r)document.getElementById("authRegisterRole").value="analyst";
+}
+async function submitAuth(event){
+ event.preventDefault();const username=document.getElementById("authUsername").value.trim(),password=document.getElementById("authPassword").value,msg=document.getElementById("authMessage");
+ msg.className="min-h-5 text-xs text-slate-400";msg.textContent="Processing...";
+ try{
+  if(authMode==="register"){
+   const role=document.getElementById("authRegisterRole").value;if(role!=="analyst"){msg.textContent="Admin registration is restricted. Ask an administrator for credentials.";msg.className="min-h-5 text-xs text-amber-300";return;}
+   const r=await fetch(API_BASE+"/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password,role})}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("Registration failed: API "+r.status));
+   msg.textContent="Account created. Switching to login...";msg.className="min-h-5 text-xs text-emerald-400";setAuthMode("login");document.getElementById("authUsername").value=username;document.getElementById("authPassword").value="";return;
+  }
+  const r=await fetch(API_BASE+"/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("Login failed: API "+r.status));
+  localStorage.setItem("soc_api_key",d.session_token);localStorage.setItem("soc_user",d.username+"|"+d.role);closeAuth();window.location.href="admin.html";
+ }catch(e){msg.textContent=e.message;msg.className="min-h-5 text-xs text-amber-300";}
+}
+
 async function logPublic(action,detail={}){
  if(!participantName)return;
  try{
@@ -233,12 +288,12 @@ function saveParticipant(){
   return;
  }
  participantName=value;
- localStorage.setItem(NAME_KEY,participantName);
- document.getElementById("participantStatus").textContent="Participant registered. Your name will be visible to the SOC administrator.";
- document.getElementById("participantStatus").className="mt-2 text-xs text-emerald-400";
- document.getElementById("demoParticipant").textContent=participantName;
- document.getElementById("participantName").value=participantName;
- logPublic("page_view",{participant_name:participantName,referrer:document.referrer||null});
+ sessionStorage.setItem(NAME_KEY,participantName);
+ document.getElementById("participantStatus").textContent="Participant registered.";
+ document.getElementById("participantStatus").className="mt-3 text-xs text-emerald-400";
+ const dp=document.getElementById("demoParticipant"),sp=document.getElementById("sessionParticipant");if(dp)dp.textContent=participantName;if(sp)sp.textContent=participantName;
+ unlockPublic();
+ logPublic("page_view",{referrer:document.referrer||null});
 }
 
 function logSelectedAttack(){
@@ -248,7 +303,7 @@ function logSelectedAttack(){
 }
 
 function stageSpecific(p,id){
- if(id==="ingest")return '<div class="grid gap-3 md:grid-cols-2"><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Event ID</div><div class="mt-1 font-mono text-xs">EVT-DEMO-'+Date.now().toString().slice(-8)+'</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Asset</div><div class="mt-1 font-semibold">'+escapeHtml(p.asset)+'</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Source</div><div class="mt-1 font-mono text-xs">203.0.113.50</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Event</div><div class="mt-1 text-xs">'+escapeHtml(p.detection)+'</div></div></div>';
+ if(id==="ingest")return '<div class="grid gap-3 md:grid-cols-2"><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Event ID</div><div class="mt-1 font-mono text-xs">EVT-DEMO-'+Date.now().toString().slice(-8)+'</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Asset</div><div class="mt-1 font-semibold">'+escapeHtml(p.asset)+'</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Source</div><div class="mt-1 font-mono text-xs">simulated-source</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Event</div><div class="mt-1 text-xs">'+escapeHtml(p.detection)+'</div></div></div>';
  if(id==="detect")return '<div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4"><div class="text-xs uppercase tracking-wide text-amber-300">RULE MATCH</div><div class="mt-2 font-semibold">'+escapeHtml(p.detection)+'</div><div class="mt-2 text-xs text-slate-400">Detection confidence: 93% • Pattern: '+escapeHtml(p.name)+'</div></div>';
  if(id==="correlate")return '<div class="grid gap-3 md:grid-cols-3"><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Pivot</div><div class="mt-1 font-semibold">Source / identity / asset</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Matched</div><div class="mt-1 font-semibold">3 related events</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Correlation</div><div class="mt-1 text-xs text-slate-400">'+escapeHtml(p.correlation)+'</div></div></div>';
  if(id==="triage")return '<div class="grid gap-3 md:grid-cols-4"><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Severity</div><div class="mt-1 text-xl font-bold '+(p.severity==="CRITICAL"?"text-red-400":"text-amber-300")+'">'+p.severity+'</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Confidence</div><div class="mt-1 text-xl font-bold">93%</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Priority</div><div class="mt-1 text-xl font-bold">P1</div></div><div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Asset impact</div><div class="mt-1 text-xs font-semibold">'+escapeHtml(p.asset)+'</div></div></div>';
@@ -417,15 +472,14 @@ function simulateMitre(id){
  setTimeout(runFullDemo,250);
 }
 
-document.getElementById("participantName").value=participantName;
-if(participantName){
- document.getElementById("participantStatus").textContent="Participant registered. You can update the name before another demo.";
- document.getElementById("participantStatus").className="mt-2 text-xs text-emerald-400";
-}
+setPublicTheme(localStorage.getItem("soc_public_theme")||"dark");
+if(participantName)unlockPublic();else openNameGate();
 updateSummary();
 renderTimeline();
 loadMitreLibrary();
+if(new URLSearchParams(location.search).get("auth")==="1"&&participantName)openAuth("login");
 
+document.getElementById("participantName")?.addEventListener("keydown",(event)=>{if(event.key==="Enter")saveParticipant();});
 document.addEventListener("visibilitychange",()=>{
  if(participantName)logPublic("visibility_change",{visible:document.visibilityState==="visible"});
 });
