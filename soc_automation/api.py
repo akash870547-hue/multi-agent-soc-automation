@@ -3,7 +3,7 @@ import json
 import os
 import sqlite3
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .correlation import correlate_event
@@ -21,6 +21,7 @@ app.add_middleware(
 )
 
 DB_PATH = os.getenv("SOC_DB_PATH", "soc_automation.db")
+API_KEY = os.getenv("SOC_API_KEY")
 
 
 def db():
@@ -114,6 +115,12 @@ def get_incident_or_404(incident_id: str) -> dict:
     return json.loads(row["payload"])
 
 
+
+def require_api_key(x_api_key: str | None):
+    """Enforce API-key authentication when SOC_API_KEY is configured."""
+    if API_KEY and x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
 def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -147,7 +154,8 @@ def get_incident(incident_id: str):
 
 
 @app.post("/api/incidents/{incident_id}/approve")
-def approve_incident(incident_id: str):
+def approve_incident(incident_id: str, x_api_key: str | None = Header(default=None)):
+    require_api_key(x_api_key)
     incident = get_incident_or_404(incident_id)
     incident["governance"]["approved"] = True
     incident["governance"]["approved_at"] = iso_now()
@@ -157,7 +165,8 @@ def approve_incident(incident_id: str):
 
 
 @app.post("/api/incidents/{incident_id}/acknowledge")
-def acknowledge_incident(incident_id: str):
+def acknowledge_incident(incident_id: str, x_api_key: str | None = Header(default=None)):
+    require_api_key(x_api_key)
     incident = get_incident_or_404(incident_id)
     if not incident.get("acknowledged_at"):
         incident["acknowledged_at"] = iso_now()
@@ -168,7 +177,8 @@ def acknowledge_incident(incident_id: str):
 
 
 @app.post("/api/incidents/{incident_id}/resolve")
-def resolve_incident(incident_id: str):
+def resolve_incident(incident_id: str, x_api_key: str | None = Header(default=None)):
+    require_api_key(x_api_key)
     incident = get_incident_or_404(incident_id)
     if not incident.get("acknowledged_at"):
         incident["acknowledged_at"] = iso_now()
@@ -179,7 +189,8 @@ def resolve_incident(incident_id: str):
 
 
 @app.post("/api/events")
-def ingest_event(event: SecurityEvent):
+def ingest_event(event: SecurityEvent, x_api_key: str | None = Header(default=None)):
+    require_api_key(x_api_key)
     prior_events = load_events()
     save_event(event)
     result = process_event(event)
