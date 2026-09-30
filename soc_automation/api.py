@@ -160,6 +160,14 @@ def init_db():
             user_id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE,
             role TEXT NOT NULL, password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL, revoked_at TEXT)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used_at TEXT)""")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id, created_at DESC)")
         connection.execute("""CREATE TABLE IF NOT EXISTS monitor_targets (
             target_id TEXT PRIMARY KEY, url TEXT NOT NULL UNIQUE, name TEXT,
             status TEXT NOT NULL, status_code INTEGER, response_ms REAL,
@@ -689,7 +697,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.10.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.12.0"}
 
 
 @app.get("/ready")
@@ -759,6 +767,38 @@ def list_users(x_api_key: str | None = Header(default=None)):
     return [dict(row) for row in rows]
 
 
+@app.post("/api/auth/users/{user_id}/reset-token")
+def create_password_reset(
+    user_id: str,
+    x_api_key: str | None = Header(default=None),
+    x_actor: str | None = Header(default=None),
+):
+    actor, _ = require_role(x_api_key, {"admin"})
+    raw_token = secrets.token_urlsafe(24)
+    token_hash = hash_api_key(raw_token)
+    created = datetime.now(timezone.utc)
+    expires = created + timedelta(minutes=15)
+    with db() as connection:
+        row = connection.execute("SELECT user_id,username,revoked_at FROM users WHERE user_id=?", (user_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        if row["revoked_at"]:
+            raise HTTPException(status_code=400, detail="Cannot reset a revoked user")
+        connection.execute("UPDATE password_resets SET used_at=? WHERE user_id=? AND used_at IS NULL", (iso_now(), user_id))
+        connection.execute(
+            "INSERT INTO password_resets(user_id,token_hash,created_at,expires_at) VALUES (?,?,?,?)",
+            (user_id, token_hash, created, expires),
+        )
+    audit("create_password_reset", user_id, x_actor or actor)
+    return {
+        "user_id": user_id,
+        "username": row["username"],
+        "reset_token": raw_token,
+        "expires_at": expires.isoformat(),
+        "warning": "This reset token is displayed once and expires in 15 minutes.",
+    }
+
+
 @app.post("/api/auth/users/generate")
 def generate_user(
     request: UserGenerate,
@@ -820,6 +860,36 @@ def revoke_user(
     audit("revoke_user", user_id, x_actor or actor)
     return {"user_id": user_id, "revoked": True}
 
+
+@app.post("/api/auth/reset-password")
+def reset_password(payload: PasswordResetRequest):
+    username = payload.username.strip().lower()
+    if not username or len(payload.new_password) < 12:
+        raise HTTPException(status_code=400, detail="Username and a password of at least 12 characters are required")
+    token_hash = hash_api_key(payload.reset_token.strip())
+    now = datetime.now(timezone.utc)
+    with db() as connection:
+        row = connection.execute(
+            """SELECT r.id,r.user_id,r.expires_at,u.username,u.revoked_at
+               FROM password_resets r JOIN users u ON u.user_id=r.user_id
+               WHERE u.username=? AND r.token_hash=? AND r.used_at IS NULL
+               ORDER BY r.id DESC LIMIT 1""",
+            (username, token_hash),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+        try:
+            expires = datetime.fromisoformat(row["expires_at"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+        if row["revoked_at"] or expires < now:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+        password_hash = hash_password(payload.new_password)
+        connection.execute("UPDATE users SET password_hash=?, revoked_at=NULL WHERE user_id=?", (password_hash, row["user_id"]))
+        connection.execute("UPDATE password_resets SET used_at=? WHERE id=?", (iso_now(), row["id"]))
+        connection.execute("UPDATE api_keys SET revoked_at=? WHERE name=?", (iso_now(), "session:" + username))
+    audit("reset_password", row["user_id"], "public")
+    return {"reset": True, "username": username}
 
 @app.get("/api/me")
 def me(x_api_key: str | None = Header(default=None)):
