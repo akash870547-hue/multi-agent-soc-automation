@@ -15,17 +15,30 @@ from .threat_intel import enrich_indicator
 
 app = FastAPI(title="Multi-Agent SOC Automation API", version="0.4.0")
 
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "SOC_CORS_ORIGINS",
+        "https://akash870547-hue.github.io",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key", "X-Actor"],
 )
 
 DB_PATH = os.getenv("SOC_DB_PATH", "soc_automation.db")
 API_KEY = os.getenv("SOC_API_KEY")
-ROLE_KEYS = {"analyst": os.getenv("SOC_ANALYST_KEY"), "responder": os.getenv("SOC_RESPONDER_KEY"), "admin": os.getenv("SOC_ADMIN_KEY")}
+ROLE_KEYS = {
+    "analyst": os.getenv("SOC_ANALYST_KEY"),
+    "responder": os.getenv("SOC_RESPONDER_KEY"),
+    "admin": os.getenv("SOC_ADMIN_KEY"),
+}
 RATE_LIMIT = int(os.getenv("SOC_RATE_LIMIT", "60"))
 RATE_WINDOW = int(os.getenv("SOC_RATE_WINDOW_SECONDS", "60"))
 _request_log: dict[str, deque[float]] = defaultdict(deque)
