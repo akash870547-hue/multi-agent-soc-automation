@@ -70,7 +70,7 @@ The authenticated production Admin Console is available separately at:
 
 `https://akash870547-hue.github.io/multi-agent-soc-automation/admin.html`
 
-The public page is isolated and uses local simulated results only. It does not call the production backend or expose API keys, incidents, audit logs, or monitored customer targets. The Admin Console connects to the FastAPI backend and requires authentication.
+The public page is isolated from the authenticated Admin Console. It can submit only limited public telemetry and the one-time HTTPS security-test workflow. It never receives API keys, incidents, audit logs, customer monitoring targets, or administrative controls. The Admin Console connects to the FastAPI backend and requires username/password authentication.
 
 ## API backend
 
@@ -95,6 +95,11 @@ Useful endpoints:
 - `GET /api/audit-logs` - recent auditable state-changing actions
 - `GET /api/monitor/targets` - monitored websites with security findings
 - `POST /api/public/security-test` - one-time public HTTPS security test; does not persist a target
+- `POST /api/public/telemetry` - public visitor/activity telemetry for page views, heartbeats and meaningful product actions
+- `GET /api/public/mitre/techniques` - cached MITRE ATT&CK Enterprise v19.2 catalogue
+- `GET /api/admin/public/summary` - admin-only live public-platform summary
+- `GET /api/admin/public/visitors` - admin-only public visitor presence/history
+- `GET /api/admin/public/activity` - admin-only public activity feed
 - `GET /api/monitor/targets` - admin/responder/analyst view of persisted monitoring targets
 - `POST /api/monitor/targets` - admin-only add a continuous monitoring target
 - `POST /api/monitor/targets/{target_id}/check` - trigger an immediate admin-monitoring check
@@ -115,7 +120,9 @@ Set `SOC_API_KEY` to protect state-changing endpoints with the `X-API-Key` heade
 SOC_API_KEY=change-me uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-The public GitHub Pages dashboard runs in demo mode by default. When an API URL is supplied with `?api=...`, the dashboard connects to the FastAPI backend and sends the optional `X-API-Key` header for state-changing operations. The API key is stored in browser local storage. To connect it to a running API, open the dashboard with an `api` query parameter, for example:
+The public GitHub Pages security lab is deliberately separated from authenticated SOC operations. Public visitors receive a generated anonymous visitor identifier for telemetry. The backend records page views, live heartbeats, visibility changes, selected and run attack simulations, MITRE library activity and public web-test results in separate public visitor/activity tables. Admins see this through a dedicated Public Platform Monitor section, including active visitors, IP address, current page, user-agent, last action and recent activity. Public telemetry is rate-limited and never creates SOC incidents.
+
+The public attack simulator uses synthetic, non-executing scenarios mapped to MITRE ATT&CK IDs. The public MITRE library is sourced from the official Enterprise ATT&CK STIX v19.2 release and is searchable on the public page; users can open the canonical MITRE technique pages for the full reference. When an API URL is supplied with `?api=...`, the dashboard connects to the FastAPI backend and sends the optional `X-API-Key` header for state-changing operations. The API key is stored in browser local storage. To connect it to a running API, open the dashboard with an `api` query parameter, for example:
 
 `?api=http://localhost:8000`
 
