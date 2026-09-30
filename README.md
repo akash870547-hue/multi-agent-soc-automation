@@ -108,6 +108,17 @@ The public GitHub Pages dashboard runs in demo mode by default. When an API URL 
 
 `?api=http://localhost:8000`
 
+
+### SOC roles and website monitoring
+
+The dashboard exposes role-aware controls through `GET /api/me`:
+
+- **Analyst:** ingest events, acknowledge incidents, inspect monitored websites.
+- **Responder:** analyst permissions plus approve and resolve incidents.
+- **Admin:** responder permissions plus website-target administration and audit logs.
+
+Website monitoring is built into the backend. An admin can register a public HTTPS target with `POST /api/monitor/targets`. The backend performs periodic availability checks, records status/latency, and creates a SOC event when a monitored target changes state. Private/local network targets are rejected to reduce SSRF risk. The default polling interval is 5 minutes and can be changed with `SOC_MONITOR_INTERVAL_SECONDS`.
+
 ## Experiments
 
 A reproducible synthetic SOC dataset is provided under `experiments/dataset.json`. Run the evaluation with:
