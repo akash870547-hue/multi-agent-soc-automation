@@ -2,6 +2,9 @@ from datetime import datetime, timezone
 import ipaddress
 import json
 import os
+import hashlib
+import hmac
+import secrets
 import socket
 import sqlite3
 import threading
@@ -53,6 +56,11 @@ class MonitorTarget(BaseModel):
     name: str | None = None
 
 
+class ApiKeyCreate(BaseModel):
+    role: str
+    name: str
+
+
 def db():
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
@@ -72,6 +80,9 @@ def init_db():
         connection.execute("""CREATE TABLE IF NOT EXISTS audit_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL,
             resource_id TEXT, actor TEXT NOT NULL, created_at TEXT NOT NULL)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS api_keys (
+            key_id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL,
+            key_hash TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)""")
         connection.execute("""CREATE TABLE IF NOT EXISTS monitor_targets (
             target_id TEXT PRIMARY KEY, url TEXT NOT NULL UNIQUE, name TEXT,
             status TEXT NOT NULL, status_code INTEGER, response_ms REAL,
@@ -141,6 +152,10 @@ def rate_limit(client_key: str):
     bucket.append(now)
 
 
+def hash_api_key(key: str) -> str:
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
 def authenticate(x_api_key: str | None) -> tuple[str, str]:
     if not (API_KEY or any(ROLE_KEYS.values())):
         return "local", "admin"
@@ -149,6 +164,13 @@ def authenticate(x_api_key: str | None) -> tuple[str, str]:
     for role, key in ROLE_KEYS.items():
         if key and x_api_key == key:
             return role, role
+    if x_api_key:
+        digest = hash_api_key(x_api_key)
+        with db() as connection:
+            rows = connection.execute("SELECT key_id, role, key_hash FROM api_keys WHERE revoked_at IS NULL").fetchall()
+        for row in rows:
+            if hmac.compare_digest(digest, row["key_hash"]):
+                return row["key_id"], row["role"]
     raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
@@ -255,6 +277,45 @@ def me(x_api_key: str | None = Header(default=None)):
         "website_monitor": role == "admin",
         "monitor_check": role in {"admin", "responder", "analyst"},
     }}
+
+
+@app.get("/api/admin/api-keys")
+def list_api_keys(x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin"})
+    with db() as connection:
+        rows = connection.execute("SELECT key_id,name,role,created_at,revoked_at FROM api_keys ORDER BY created_at DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.post("/api/admin/api-keys")
+def create_api_key(request: ApiKeyCreate, x_api_key: str | None = Header(default=None), x_actor: str | None = Header(default=None)):
+    actor, _ = require_role(x_api_key, {"admin"})
+    role = request.role.lower().strip()
+    if role not in {"analyst", "responder", "admin"}:
+        raise HTTPException(status_code=400, detail="Role must be analyst, responder, or admin")
+    name = request.name.strip()[:80]
+    if not name:
+        raise HTTPException(status_code=400, detail="Key name is required")
+    raw_key = "soc_" + secrets.token_urlsafe(32)
+    key_id = "key_" + secrets.token_hex(8)
+    with db() as connection:
+        connection.execute("INSERT INTO api_keys(key_id,name,role,key_hash,created_at) VALUES (?,?,?,?,?)",
+                           (key_id, name, role, hash_api_key(raw_key), iso_now()))
+    audit("create_api_key", key_id, x_actor or actor)
+    return {"key_id": key_id, "name": name, "role": role, "api_key": raw_key,
+            "warning": "Store this key securely. It will not be shown again."}
+
+
+@app.post("/api/admin/api-keys/{key_id}/revoke")
+def revoke_api_key(key_id: str, x_api_key: str | None = Header(default=None), x_actor: str | None = Header(default=None)):
+    actor, _ = require_role(x_api_key, {"admin"})
+    with db() as connection:
+        row = connection.execute("SELECT key_id FROM api_keys WHERE key_id=?", (key_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="API key not found")
+        connection.execute("UPDATE api_keys SET revoked_at=? WHERE key_id=?", (iso_now(), key_id))
+    audit("revoke_api_key", key_id, x_actor or actor)
+    return {"key_id": key_id, "revoked": True}
 
 
 @app.get("/api/agents")
