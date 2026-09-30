@@ -89,6 +89,11 @@ Useful endpoints:
 - `POST /api/incidents/{incident_id}/resolve` - resolve an incident
 - `GET /api/threat-intel/{indicator}` - optional IOC enrichment
 - `GET /api/audit-logs` - recent auditable state-changing actions
+- `GET /api/monitor/targets` - monitored websites with security findings
+- `POST /api/monitor/targets` - add a public HTTPS monitoring target
+- `POST /api/monitor/targets/{target_id}/check` - trigger an immediate check
+- `GET /api/monitor/targets/{target_id}/history` - recent check history
+- `DELETE /api/monitor/targets/{target_id}` - remove a monitoring target
 
 ### Optional LLM reasoning
 
@@ -117,7 +122,7 @@ The dashboard exposes role-aware controls through `GET /api/me`:
 - **Responder:** analyst permissions plus approve and resolve incidents.
 - **Admin:** responder permissions plus website-target administration and audit logs.
 
-Website monitoring is built into the backend. An admin can register a public HTTPS target with `POST /api/monitor/targets`. The backend performs periodic availability checks, records status/latency, and creates a SOC event when a monitored target changes state. Private/local network targets are rejected to reduce SSRF risk. The default polling interval is 5 minutes and can be changed with `SOC_MONITOR_INTERVAL_SECONDS`.
+Website security monitoring is built into the backend. An admin can register a public HTTPS target with `POST /api/monitor/targets`. Each check records availability, HTTP status, latency, TLS certificate validity/expiry, response security headers, redirect chain, a bounded content SHA-256 fingerprint, findings, and check history. The monitor generates SOC incidents for availability state changes, newly removed security headers, TLS certificates entering the 30-day expiry window, redirect-chain changes, and content changes. Private/local network targets are rejected to reduce SSRF risk. Admins can remove targets, while analysts/responder roles can inspect and trigger checks. The default polling interval is 5 minutes and can be changed with `SOC_MONITOR_INTERVAL_SECONDS`.
 
 ## Experiments
 
@@ -163,8 +168,9 @@ pytest
 - [x] Optional threat intelligence provider adapter
 - [x] API audit logging
 - [x] Production deployment configuration (Docker/Compose + readiness/health checks)
-- [ ] Hosted production backend deployment
+- [x] Website security monitoring with TLS, headers, redirects, content and history
 - [x] Production-grade dashboard/API integration
-- [ ] Hosted production dashboard with managed backend
+- [x] Hosted GitHub Pages dashboard
+- [x] Hosted Render backend (portfolio/demo deployment)
 
 <!-- GitHub Pages deployment trigger: dashboard deployment enabled. -->
