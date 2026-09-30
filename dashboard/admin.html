@@ -253,7 +253,7 @@ async function loadMonitorTargets(){
   if(!r.ok)throw new Error("Monitor API "+r.status);
   const rows=await r.json();
   document.getElementById("monitorCount").textContent=rows.length+" target"+(rows.length===1?"":"s");
-  const canAdmin=window.socRole==="admin";
+  const canRemove=["admin","responder","analyst"].includes(window.socRole);
   document.getElementById("monitorTargets").innerHTML=rows.length?rows.map(x=>{
     const tls=x.tls||{}, missing=x.missing_security_headers||[], findings=x.findings||[];
     const statusClass=x.status==="up"?"bg-emerald-500/10 text-emerald-400":x.status==="down"?"bg-red-500/10 text-red-400":"bg-amber-500/10 text-amber-400";
@@ -274,11 +274,11 @@ async function loadMonitorTargets(){
       <div class="mt-3 flex flex-wrap gap-2">
         <button onclick="checkMonitor('${esc(x.target_id)}')" class="rounded-lg border border-slate-700 px-3 py-1 text-xs">Check Now</button>
         <button onclick="loadMonitorHistory('${esc(x.target_id)}','${esc(x.name||x.url)}')" class="rounded-lg border border-slate-700 px-3 py-1 text-xs">History</button>
-        ${canAdmin?`<button onclick="deleteMonitor('${esc(x.target_id)}')" class="rounded-lg border border-red-500/30 px-3 py-1 text-xs text-red-300">Remove</button>`:""}
+        ${canRemove?`<button onclick="deleteMonitor('${esc(x.target_id)}')" class="rounded-lg border border-red-500/30 px-3 py-1 text-xs text-red-300">Remove</button>`:""}
       </div>
     </div>`;
   }).join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500">No monitored websites yet.</div>';
- }catch(e){document.getElementById("monitorTargets").innerHTML='<div class="text-xs text-slate-500">Connect to the backend to use website monitoring.</div>';}
+ }catch(e){document.getElementById("monitorTargets").innerHTML='<div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-200">Website monitoring backend error: '+esc(e.message||"API error")+'</div>';}
 }
 async function loadMonitorHistory(id,name){
  try{
