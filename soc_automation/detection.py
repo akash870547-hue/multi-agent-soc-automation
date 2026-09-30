@@ -4,6 +4,7 @@ from .models import Alert, SecurityEvent, Severity
 def detect(event: SecurityEvent) -> Alert | None:
     message = event.message.lower()
     indicators = {
+        "website monitor": (Severity.HIGH, "Website availability state change detected by monitoring"),
         "failed login": (Severity.MEDIUM, "Repeated or suspicious authentication failure"),
         "sql injection": (Severity.HIGH, "Potential SQL injection activity detected"),
         "malware": (Severity.CRITICAL, "Potential malware activity detected"),
