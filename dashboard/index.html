@@ -10,7 +10,7 @@
 <header class="border-b border-slate-800 bg-slate-950/95">
 <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
 <div><div class="text-xl font-bold">Multi-Agent SOC</div><div class="text-xs text-slate-400">AI-assisted Security Operations Center</div></div>
-<div class="flex items-center gap-3"><span id="mode" class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-400">DEMO MODE</span><span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">● ONLINE</span></div>
+<div class="flex items-center gap-3"><span id="mode" class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">PRODUCTION MODE</span><span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">● ONLINE</span></div>
 </div></header>
 <main class="mx-auto max-w-7xl px-6 py-8">
 <section class="mb-8"><h1 class="text-3xl font-bold">Security Operations Dashboard</h1><p class="mt-2 max-w-3xl text-slate-400">Research implementation of a multi-agent framework for SOC automation and incident response.</p></section>
@@ -133,7 +133,7 @@ document.getElementById("apiKey").addEventListener("change",e=>{localStorage.set
 updateAuthStatus();\nasync function ingest(){
  const message=document.getElementById("message").value,sourceIp=document.getElementById("sourceIp").value,destIp=document.getElementById("destIp").value;
  const event={event_id:"EVT-"+Date.now(),source:"dashboard",event_type:"security_event",source_ip:sourceIp,destination_ip:destIp,message};
- if(API_BASE){try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/events",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify(event)});if(!r.ok)throw new Error("API "+r.status);const d=await r.json();if(d.incident)localIncidents.push(d.incident);document.getElementById("mode").textContent="LIVE API";document.getElementById("notice").textContent="Event processed by FastAPI backend.";renderIncidents(localIncidents);if(d.incident)showIncident(d.incident.incident_id);return}catch(e){document.getElementById("notice").textContent="API unavailable, using local demo engine.";}}
+ if(!API_BASE){document.getElementById("notice").textContent="Production API is not configured. Add ?api=https://your-api-host to the dashboard URL.";return;} try{const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/events",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify(event)});if(!r.ok)throw new Error("API "+r.status);const d=await r.json();if(d.incident)localIncidents.push(d.incident);document.getElementById("mode").textContent="LIVE API";document.getElementById("notice").textContent="Event processed by FastAPI backend.";renderIncidents(localIncidents);if(d.incident)showIncident(d.incident.incident_id);return}catch(e){document.getElementById("notice").textContent="API unavailable, using local demo engine.";}}
  const incident=localProcess(message,sourceIp,destIp);if(incident)localIncidents.push(incident);document.getElementById("notice").textContent=incident?"Event detected and triaged in demo engine.":"No matching detection rule.";renderIncidents(localIncidents);if(incident)showIncident(incident.incident_id);
 }
 function simulate(){document.getElementById("message").value="SQL injection detected from 203.0.113.50";document.getElementById("sourceIp").value="203.0.113.50";ingest()}
