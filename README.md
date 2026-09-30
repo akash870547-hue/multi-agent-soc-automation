@@ -71,3 +71,6 @@ pytest
 - [ ] API and persistent incident store
 - [ ] MTTD/MTTR experiment framework
 - [ ] Production-grade dashboard
+
+
+<!-- GitHub Pages deployment trigger: dashboard deployment enabled. -->
