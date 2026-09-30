@@ -225,11 +225,20 @@ function setPublicTheme(theme){
 }
 function togglePublicTheme(){setPublicTheme(document.getElementById("publicRoot").dataset.theme==="dark"?"light":"dark");}
 function unlockPublic(){
- document.getElementById("nameGate").classList.add("hidden");document.body.classList.remove("overflow-hidden");
- document.getElementById("visitorState").classList.remove("hidden");
- const sp=document.getElementById("sessionParticipant"),dp=document.getElementById("demoParticipant");if(sp)sp.textContent=participantName||"-";if(dp)dp.textContent=participantName||"Not entered";
+ const gate=document.getElementById("nameGate");
+ if(gate){gate.classList.add("hidden");gate.style.display="none";}
+ document.body.classList.remove("overflow-hidden");document.body.style.overflow="";
+ const state=document.getElementById("visitorState");
+ if(state){state.classList.remove("hidden");state.style.display="inline-flex";}
+ const sp=document.getElementById("sessionParticipant"),dp=document.getElementById("demoParticipant");
+ if(sp)sp.textContent=participantName||"-";if(dp)dp.textContent=participantName||"Not entered";
 }
-function openNameGate(){document.getElementById("nameGate").classList.remove("hidden");document.body.classList.add("overflow-hidden");setTimeout(()=>document.getElementById("participantName")?.focus(),0);}
+function openNameGate(){
+ const gate=document.getElementById("nameGate");
+ if(gate){gate.classList.remove("hidden");gate.style.display="flex";}
+ document.body.classList.add("overflow-hidden");document.body.style.overflow="hidden";
+ setTimeout(()=>document.getElementById("participantName")?.focus(),0);
+}
 function renameParticipant(){sessionStorage.removeItem(NAME_KEY);participantName="";openNameGate();}
 function ensureParticipant(){if(participantName&&participantName.length>=2)return true;openNameGate();const x=document.getElementById("participantStatus");if(x){x.textContent="Enter your name before starting the demonstration.";x.className="mt-3 text-xs text-amber-300";}return false;}
 
@@ -303,19 +312,29 @@ async function logPublic(action,detail={}){
  }catch(e){}
 }
 function saveParticipant(){
- const value=document.getElementById("participantName").value.trim().replace(/\s+/g," ");
- if(value.length<2||value.length>80){
-  document.getElementById("participantStatus").textContent="Please enter a valid name between 2 and 80 characters.";
-  document.getElementById("participantStatus").className="mt-2 text-xs text-amber-300";
-  return;
+ try{
+  const input=document.getElementById("participantName");
+  const status=document.getElementById("participantStatus");
+  const value=(input?.value||"").trim().replace(/\s+/g," ");
+  if(value.length<2||value.length>80){
+   if(status){status.textContent="Please enter a valid name between 2 and 80 characters.";status.className="mt-2 text-xs text-amber-300";}
+   return false;
+  }
+  participantName=value;
+  try{sessionStorage.setItem(NAME_KEY,participantName);}catch(e){}
+  if(status){status.textContent="Participant registered.";status.className="mt-3 text-xs text-emerald-400";}
+  const dp=document.getElementById("demoParticipant"),sp=document.getElementById("sessionParticipant");
+  if(dp)dp.textContent=participantName;
+  if(sp)sp.textContent=participantName;
+  unlockPublic();
+  logPublic("page_view",{referrer:document.referrer||null});
+  return true;
+ }catch(e){
+  const status=document.getElementById("participantStatus");
+  if(status){status.textContent="Unable to continue. Please refresh and try again.";status.className="mt-2 text-xs text-amber-300";}
+  console.error("saveParticipant error:",e);
+  return false;
  }
- participantName=value;
- sessionStorage.setItem(NAME_KEY,participantName);
- document.getElementById("participantStatus").textContent="Participant registered.";
- document.getElementById("participantStatus").className="mt-3 text-xs text-emerald-400";
- const dp=document.getElementById("demoParticipant"),sp=document.getElementById("sessionParticipant");if(dp)dp.textContent=participantName;if(sp)sp.textContent=participantName;
- unlockPublic();
- logPublic("page_view",{referrer:document.referrer||null});
 }
 
 function logSelectedAttack(){
@@ -515,6 +534,7 @@ loadMitreLibrary();
 if(new URLSearchParams(location.search).get("auth")==="1"&&participantName)openAuth("login");
 
 document.getElementById("participantName")?.addEventListener("keydown",(event)=>{if(event.key==="Enter")saveParticipant();});
+window.addEventListener("load",()=>{if(participantName)unlockPublic();else openNameGate();});
 document.addEventListener("visibilitychange",()=>{
  if(participantName)logPublic("visibility_change",{visible:document.visibilityState==="visible"});
 });
