@@ -68,7 +68,7 @@ The public product test is available at:
 
 The authenticated production Admin Console is available separately at:
 
-`https://akash870547-hue.github.io/multi-agent-soc-automation/dashboard/admin.html`
+`https://akash870547-hue.github.io/multi-agent-soc-automation/admin.html`
 
 The public page is isolated and uses local simulated results only. It does not call the production backend or expose API keys, incidents, audit logs, or monitored customer targets. The Admin Console connects to the FastAPI backend and requires authentication.
 
