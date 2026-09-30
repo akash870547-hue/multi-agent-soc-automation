@@ -89,6 +89,12 @@ class UserRegister(BaseModel):
     role: str = "analyst"
 
 
+class PasswordResetRequest(BaseModel):
+    username: str
+    reset_token: str
+    new_password: str
+
+
 class PublicTelemetry(BaseModel):
     visitor_id: str
     visitor_name: str
