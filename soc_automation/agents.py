@@ -1,4 +1,5 @@
-from .models import Incident, Alert
+from .models import Incident, Alert, SecurityEvent
+from .threat_intel import extract_iocs, map_attack_technique
 
 
 class TriageAgent:
@@ -10,6 +11,22 @@ class TriageAgent:
             f"Detection confidence: {alert.confidence:.0%}.",
             alert.reason,
         ]
+
+
+class ThreatIntelligenceAgent:
+    name = "threat-intelligence-agent"
+
+    def run(self, event: SecurityEvent, incident: Incident) -> list[str]:
+        incident.iocs = extract_iocs(event)
+        incident.mitre = map_attack_technique(event)
+        findings = []
+        if incident.iocs["ipv4"]:
+            findings.append(f"Extracted IPv4 indicators: {', '.join(incident.iocs['ipv4'])}.")
+        if incident.iocs["sha256"]:
+            findings.append(f"Extracted SHA-256 indicators: {len(incident.iocs['sha256'])} hash(es).")
+        if incident.mitre["technique_id"]:
+            findings.append(f"Mapped to MITRE ATT&CK {incident.mitre['technique_id']}: {incident.mitre['technique_name']}.")
+        return findings
 
 
 class InvestigationAgent:
