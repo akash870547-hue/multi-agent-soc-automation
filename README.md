@@ -33,6 +33,9 @@ Security Events → Ingestion → Detection → Correlation → Multi-Agent Anal
 
 The backend currently supports:
 
+- Production-oriented container image with non-root runtime and persistent SQLite volume
+- `/ready` readiness endpoint and API ingestion rate limiting
+
 - Structured security event ingestion
 - Rule-based alert detection
 - Multi-agent incident orchestration
@@ -139,7 +142,9 @@ pytest
 - [x] Role-based API access and audit authorization
 - [x] Initial MTTD/MTTR experiment dataset and classification evaluation framework
 - [x] Optional threat intelligence provider adapter\n- [x] API audit logging
-- [ ] Production backend deployment
-- [ ] Production-grade live dashboard
+- [x] Production deployment configuration (Docker/Compose + readiness/health checks)
+- [ ] Hosted production backend deployment
+- [x] Production-grade dashboard/API integration
+- [ ] Hosted production dashboard with managed backend
 
 <!-- GitHub Pages deployment trigger: dashboard deployment enabled. -->
