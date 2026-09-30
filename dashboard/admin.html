@@ -51,6 +51,19 @@
 <section id="adminConsole" class="mt-6 hidden rounded-xl border border-amber-500/20 bg-slate-900 p-6">
  <div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Admin Console</h2><p class="mt-1 text-xs text-slate-500">Administrative visibility for governance and monitoring activity.</p></div><button onclick="loadAuditLogs()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Refresh Audit Logs</button></div>
  <div id="auditLogs" class="mt-4 overflow-auto text-xs"></div>
+<div id="publicMonitor" class="mt-4 rounded-lg border border-sky-500/20 bg-slate-950 p-4">
+  <div class="flex items-center justify-between gap-3"><div><div class="text-sm font-semibold">Public Platform Monitor</div><div class="mt-1 text-xs text-slate-500">Live visibility into public-page visitors, test runs, MITRE browsing and meaningful activity. This is separate from SOC incidents.</div></div><button onclick="loadPublicMonitor()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Refresh</button></div>
+  <div class="mt-4 grid gap-3 sm:grid-cols-4">
+    <div class="rounded-lg bg-slate-900 p-3"><div class="text-xs text-slate-500">Active now</div><div id="pubActive" class="mt-1 text-2xl font-bold text-emerald-400">0</div></div>
+    <div class="rounded-lg bg-slate-900 p-3"><div class="text-xs text-slate-500">Visitors seen</div><div id="pubVisitors" class="mt-1 text-2xl font-bold">0</div></div>
+    <div class="rounded-lg bg-slate-900 p-3"><div class="text-xs text-slate-500">Tests today</div><div id="pubTests" class="mt-1 text-2xl font-bold">0</div></div>
+    <div class="rounded-lg bg-slate-900 p-3"><div class="text-xs text-slate-500">Page views today</div><div id="pubViews" class="mt-1 text-2xl font-bold">0</div></div>
+  </div>
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <div><div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Active / Recent Visitors</div><div id="publicVisitors" class="max-h-80 space-y-2 overflow-auto"></div></div>
+    <div><div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Live Activity Feed</div><div id="publicActivity" class="max-h-80 space-y-2 overflow-auto"></div></div>
+  </div>
+</div>
 <div id="userManager" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4">
   <div class="flex items-center justify-between"><div class="text-sm font-semibold">User Credential Management</div><button onclick="loadUsers()" class="text-xs text-sky-400">Refresh</button></div>
   <p class="mt-1 text-xs text-slate-500">Generate separate Admin or Analyst credentials. Passwords are shown once.</p>
@@ -78,22 +91,6 @@ function updateAuthStatus(ok=null){
  el.textContent=!key?"Not configured":ok===true?"Authenticated":"Key saved";
  el.className="rounded-full border px-3 py-1 text-xs "+(!key?"border-slate-700 text-slate-400":ok===true?"border-emerald-500/30 bg-emerald-500/10 text-emerald-400":"border-amber-500/30 bg-amber-500/10 text-amber-400");
 }
-async function connectApi(){
- const input=document.getElementById("apiKey");
- const key=input.value.trim();
- if(!key){updateAuthStatus(false);document.getElementById("notice").textContent="Enter the bootstrap/admin API key first.";return;}
- localStorage.setItem("soc_api_key",key);
- try{
-  const r=await fetch(API_BASE+"/api/me",{headers:{...API_HEADERS()}});
-  const body=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(body.detail||("Authentication failed (HTTP "+r.status+")"));
-  updateAuthStatus(true);
-  applyPermissions(body);
-  document.getElementById("notice").textContent="Connected as "+body.role+".";
-  loadLive();
- }catch(e){updateAuthStatus(false);document.getElementById("notice").textContent=e.message;}}
-function applyPermissions(d){window.socRole=d.role||"unknown";document.getElementById("roleBadge").textContent=(d.role||"unknown").toUpperCase();const p=d.permissions||{};for(const [id,v] of [["permIngest",p.ingest],["permAck",p.acknowledge],["permApprove",p.approve],["permResolve",p.resolve],["permMonitor",p.website_monitor],["permAudit",p.audit_logs]])document.getElementById(id).textContent=v?"YES":"NO";if(p.audit_logs){document.getElementById("adminConsole").classList.remove("hidden");document.getElementById("keyManager").classList.remove("hidden");loadAuditLogs();loadKeys()}}
-function clearApiKey(){localStorage.removeItem("soc_api_key");document.getElementById("apiKey").value="";updateAuthStatus(false);document.getElementById("notice").textContent="API key cleared from this browser."}
 let localIncidents=[];
 const demoAgents=[
  {name:"Triage Agent",status:"ready"},{name:"Threat Intelligence Agent",status:"ready"},
@@ -157,8 +154,6 @@ function localProcess(message,sourceIp,destIp){
  const ips=[...new Set([sourceIp,destIp,...(message.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)||[])].filter(Boolean))];
  return {incident_id:"INC-LOCAL-"+Date.now(),alert:{alert_id:"ALT-LOCAL-"+Date.now(),event_id:"EVT-LOCAL-"+Date.now(),title:"Detected security event",severity,confidence:.85,reason},status:"open",findings:[reason,"Detection confidence: 85%",`Mapped to MITRE ATT&CK ${technique}: ${name}.`],recommendations:["Preserve relevant logs and evidence.","Validate the finding with a human analyst before containment."],iocs:{ipv4:ips,sha256:[]},mitre:{technique_id:technique,technique_name:name}};
 }
-document.getElementById("apiKey").value=localStorage.getItem("soc_api_key") || "";
-document.getElementById("apiKey").addEventListener("change",e=>{localStorage.setItem("soc_api_key",e.target.value.trim());updateAuthStatus(false);});
 updateAuthStatus();
 async function ingest(){
  const message=document.getElementById("message").value,sourceIp=document.getElementById("sourceIp").value,destIp=document.getElementById("destIp").value;
@@ -196,6 +191,7 @@ async function loadMe(){
   document.getElementById("addMonitorBtn").disabled=!d.permissions.website_monitor;
   if(d.permissions.audit_logs){
     loadAuditLogs();
+    loadPublicMonitor();
     document.getElementById("userManager").classList.remove("hidden");
     document.getElementById("keyManager").classList.remove("hidden");
     loadUsers();
@@ -279,6 +275,36 @@ async function checkMonitor(id){
   const d=await r.json();document.getElementById("notice").textContent="Website check: "+d.status+" ("+(d.response_ms??"N/A")+"ms).";loadMonitorTargets();loadLive();loadMe();
  }catch(e){document.getElementById("notice").textContent="Website check failed: "+e.message;}
 }
+async function loadPublicMonitor(){
+ if(!API_BASE||window.socRole!=="admin")return;
+ try{
+  const headers={...API_HEADERS()};
+  const [s,v,a]=await Promise.all([
+    fetch(API_BASE+"/api/admin/public/summary",{headers}),
+    fetch(API_BASE+"/api/admin/public/visitors",{headers}),
+    fetch(API_BASE+"/api/admin/public/activity?limit=120",{headers})
+  ]);
+  if(!s.ok||!v.ok||!a.ok)throw new Error("Public monitor API unavailable");
+  const summary=await s.json(),visitors=await v.json(),activity=await a.json();
+  document.getElementById("pubActive").textContent=summary.active_now??0;
+  document.getElementById("pubVisitors").textContent=summary.visitors_total??0;
+  document.getElementById("pubTests").textContent=summary.tests_today??0;
+  document.getElementById("pubViews").textContent=summary.page_views_today??0;
+  document.getElementById("publicVisitors").innerHTML=visitors.length?visitors.slice(0,60).map(x=>{
+    const active=Boolean(x.active);
+    return "<div class='rounded border border-slate-800 bg-slate-900 p-3 text-xs'><div class='flex items-center justify-between gap-3'><div class='font-medium'>"+esc(x.visitor_id.slice(0,18))+"…</div><span class='rounded-full px-2 py-1 "+(active?"bg-emerald-500/10 text-emerald-400":"bg-slate-800 text-slate-400")+"'>"+(active?"ACTIVE":"IDLE")+"</span></div><div class='mt-2 grid gap-1 text-slate-400'><div>IP: "+esc(x.ip_address||"unknown")+"</div><div>Page: "+esc(x.current_page||"-")+"</div><div>Last action: "+esc(x.last_action||"-")+"</div><div>Last seen: "+esc(new Date(x.last_seen).toLocaleString())+"</div><div class='truncate'>UA: "+esc(x.user_agent||"-")+"</div></div></div>";
+  }).join(""):"<div class='rounded border border-dashed border-slate-800 p-4 text-xs text-slate-500'>No public visitors yet.</div>";
+  document.getElementById("publicActivity").innerHTML=activity.length?activity.map(x=>{
+    const detail=x.detail||{};
+    const detailText=Object.entries(detail).map(([k,val])=>k+"="+String(val)).join(" • ");
+    return "<div class='rounded border border-slate-800 bg-slate-900 p-3 text-xs'><div class='flex items-center justify-between gap-3'><span class='font-medium text-sky-300'>"+esc(x.action)+"</span><span class='text-slate-500'>"+esc(new Date(x.created_at).toLocaleString())+"</span></div><div class='mt-1 text-slate-400'>Visitor "+esc(String(x.visitor_id).slice(0,18))+"… • "+esc(x.ip_address||"unknown")+" • "+esc(x.page||"/")+"</div>"+(detailText?"<div class='mt-1 break-words text-slate-500'>"+esc(detailText)+"</div>":"")+"</div>";
+  }).join(""):"<div class='rounded border border-dashed border-slate-800 p-4 text-xs text-slate-500'>No public activity yet.</div>";
+ }catch(e){
+  document.getElementById("publicVisitors").innerHTML="<div class='text-xs text-slate-500'>Public monitor unavailable.</div>";
+  document.getElementById("publicActivity").innerHTML="<div class='text-xs text-slate-500'>Public activity feed unavailable.</div>";
+ }
+}
+
 async function loadUsers(){
  if(!API_BASE)return;
  try{
@@ -370,5 +396,6 @@ async function loadLive(){
 }
 loadLive();
 loadMe();
+setInterval(()=>{if(window.socRole==="admin")loadPublicMonitor();},10000);
 </script>
 </body></html>
