@@ -91,9 +91,9 @@ The default reasoning engine is deterministic and requires no API key. To enable
 
 The adapter uses the OpenAI Responses API and keeps response actions behind the existing human approval gate. See `.env.example` for the configuration surface.
 
-### Optional API authentication
+### API authentication and RBAC
 
-Set `SOC_API_KEY` to protect event ingestion and incident state-changing endpoints with the `X-API-Key` header. When `SOC_API_KEY` is not configured, the local development API remains open for the dashboard demo.
+Set `SOC_API_KEY` to protect state-changing endpoints with the `X-API-Key` header. For role-based access, configure `SOC_ANALYST_KEY`, `SOC_RESPONDER_KEY`, and `SOC_ADMIN_KEY`. Analysts can ingest and acknowledge events, responders can additionally approve and resolve incidents, and admins can access audit logs. The legacy `SOC_API_KEY` acts as an admin key. When no keys are configured, the local development API remains open for the dashboard demo.
 
 ```bash
 SOC_API_KEY=change-me uvicorn api:app --host 0.0.0.0 --port 8000
@@ -136,7 +136,7 @@ pytest
 - [x] MTTD/MTTR API metrics
 - [x] Pluggable reasoning provider with optional OpenAI adapter
 - [x] Optional API-key authentication
-- [ ] Role-based access
+- [x] Role-based API access and audit authorization
 - [x] Initial MTTD/MTTR experiment dataset and classification evaluation framework
 - [x] Optional threat intelligence provider adapter\n- [x] API audit logging
 - [ ] Production backend deployment
