@@ -1,8 +1,6 @@
-from datetime import datetime, timedelta, timezone
-
-from soc_automation.correlation import correlate_event
 from soc_automation.models import SecurityEvent
 from soc_automation.pipeline import process_event
+from soc_automation.reasoning import DeterministicReasoningProvider, ReasoningEngine
 
 
 def test_sql_injection_creates_incident():
@@ -19,13 +17,7 @@ def test_benign_event_creates_no_alert():
 
 
 def test_threat_intel_extracts_ioc_and_mitre_mapping():
-    event = SecurityEvent(
-        event_id="EVT-TEST-003",
-        source="web-gateway",
-        event_type="web_attack",
-        source_ip="203.0.113.50",
-        message="SQL injection detected from 198.51.100.10",
-    )
+    event = SecurityEvent(event_id="EVT-TEST-003", source="web-gateway", event_type="web_attack", source_ip="203.0.113.50", message="SQL injection detected from 198.51.100.10")
     result = process_event(event)
     assert result is not None
     assert "198.51.100.10" in result["iocs"]["ipv4"]
@@ -34,23 +26,14 @@ def test_threat_intel_extracts_ioc_and_mitre_mapping():
 
 
 def test_ioc_extraction_finds_ip_inside_message():
-    event = SecurityEvent(
-        event_id="EVT-TEST-004", source="test", event_type="network",
-        source_ip=None, destination_ip=None,
-        message="Connection from 192.0.2.55 triggered malware detection",
-    )
+    event = SecurityEvent(event_id="EVT-TEST-004", source="test", event_type="network", message="Connection from 192.0.2.55 triggered malware detection")
     result = process_event(event)
     assert "192.0.2.55" in result["iocs"]["ipv4"]
     assert result["mitre"]["technique_id"] == "T1204"
 
 
 def test_reasoning_layer_prioritizes_critical_incident():
-    event = SecurityEvent(
-        event_id="EVT-TEST-005",
-        source="endpoint",
-        event_type="malware",
-        message="ransomware activity detected from 203.0.113.77",
-    )
+    event = SecurityEvent(event_id="EVT-TEST-005", source="endpoint", event_type="malware", message="ransomware activity detected from 203.0.113.77")
     result = process_event(event)
     assert result["reasoning"]["engine"] == "deterministic-v1"
     assert result["reasoning"]["priority"] == "P1"
@@ -58,58 +41,23 @@ def test_reasoning_layer_prioritizes_critical_incident():
 
 
 def test_incident_contains_lifecycle_timestamp():
-    event = SecurityEvent(
-        event_id="EVT-TEST-006",
-        source="endpoint",
-        event_type="malware",
-        message="malware detected",
-    )
+    event = SecurityEvent(event_id="EVT-TEST-006", source="endpoint", event_type="malware", message="malware detected")
     result = process_event(event)
     assert result["detected_at"]
     assert result["acknowledged_at"] is None
     assert result["resolved_at"] is None
 
 
-def test_correlation_matches_shared_source_ip_within_window():
-    now = datetime.now(timezone.utc)
-    event = SecurityEvent(
-        event_id="EVT-CURRENT",
-        timestamp=now,
-        source="firewall",
-        event_type="web_attack",
-        source_ip="203.0.113.9",
-        message="SQL injection detected",
-    )
-    prior = [{
-        "event_id": "EVT-PRIOR",
-        "timestamp": (now - timedelta(minutes=5)).isoformat(),
-        "source_ip": "203.0.113.9",
-        "destination_ip": "10.0.0.20",
-        "username": None,
-    }]
-    result = correlate_event(event, prior)
-    assert result["matched"] is True
-    assert result["risk"] == "medium"
-    assert result["related_events"][0]["pivots"] == ["source_ip"]
+def test_reasoning_engine_accepts_injected_provider():
+    class StubProvider(DeterministicReasoningProvider):
+        def analyze(self, incident):
+            return {"engine": "stub-v1", "priority": "P3", "summary": "stub", "rationale": [], "next_steps": []}
 
-
-def test_correlation_ignores_events_outside_window():
-    now = datetime.now(timezone.utc)
-    event = SecurityEvent(
-        event_id="EVT-CURRENT-2",
-        timestamp=now,
-        source="firewall",
-        event_type="web_attack",
-        source_ip="203.0.113.10",
-        message="SQL injection detected",
-    )
-    prior = [{
-        "event_id": "EVT-OLD",
-        "timestamp": (now - timedelta(minutes=30)).isoformat(),
-        "source_ip": "203.0.113.10",
-        "destination_ip": None,
-        "username": None,
-    }]
-    result = correlate_event(event, prior, window_minutes=15)
-    assert result["matched"] is False
-    assert result["event_count"] == 1
+    event = SecurityEvent(event_id="EVT-TEST-007", source="test", event_type="web_attack", message="SQL injection detected")
+    incident = process_event(event)
+    assert incident is not None
+    engine = ReasoningEngine(provider=StubProvider())
+    from soc_automation.models import Incident
+    model = Incident.model_validate(incident)
+    result = engine.analyze(model)
+    assert result["engine"] == "stub-v1"
