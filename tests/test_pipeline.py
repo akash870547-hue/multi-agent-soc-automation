@@ -61,3 +61,14 @@ def test_reasoning_engine_accepts_injected_provider():
     model = Incident.model_validate(incident)
     result = engine.analyze(model)
     assert result["engine"] == "stub-v1"
+
+
+def test_evaluation_dataset_produces_classification_metrics():
+    from experiments.evaluate import evaluate
+
+    result = evaluate()
+    assert result["dataset_size"] == 10
+    assert 0.0 <= result["accuracy"] <= 1.0
+    assert 0.0 <= result["precision"] <= 1.0
+    assert 0.0 <= result["recall"] <= 1.0
+    assert 0.0 <= result["f1"] <= 1.0
