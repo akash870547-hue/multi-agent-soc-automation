@@ -25,7 +25,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.7.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.8.0")
 
 _cors_origins = [
     origin.strip()
@@ -250,10 +250,11 @@ def authenticate(x_api_key: str | None) -> tuple[str, str]:
     if x_api_key:
         digest = hash_api_key(x_api_key)
         with db() as connection:
-            rows = connection.execute("SELECT key_id, role, key_hash FROM api_keys WHERE revoked_at IS NULL").fetchall()
+            rows = connection.execute("SELECT key_id, role, key_hash, name FROM api_keys WHERE revoked_at IS NULL").fetchall()
         for row in rows:
             if hmac.compare_digest(digest, row["key_hash"]):
-                return row["key_id"], row["role"]
+                actor = row["name"].removeprefix("session:")
+                return actor or row["key_id"], row["role"]
     raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
@@ -300,19 +301,19 @@ class RedirectTracker(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
     def http_error_301(self, req, fp, code, msg, headers):
-        return self._record(req, fp, code, msg, headers.get("Location"))
+        return self.redirect_request(req, fp, code, msg, headers, headers.get("Location"))
 
     def http_error_302(self, req, fp, code, msg, headers):
-        return self._record(req, fp, code, msg, headers.get("Location"))
+        return self.redirect_request(req, fp, code, msg, headers, headers.get("Location"))
 
     def http_error_303(self, req, fp, code, msg, headers):
-        return self._record(req, fp, code, msg, headers.get("Location"))
+        return self.redirect_request(req, fp, code, msg, headers, headers.get("Location"))
 
     def http_error_307(self, req, fp, code, msg, headers):
-        return self._record(req, fp, code, msg, headers.get("Location"))
+        return self.redirect_request(req, fp, code, msg, headers, headers.get("Location"))
 
     def http_error_308(self, req, fp, code, msg, headers):
-        return self._record(req, fp, code, msg, headers.get("Location"))
+        return self.redirect_request(req, fp, code, msg, headers, headers.get("Location"))
 
 
 def get_tls_info(hostname: str) -> dict:
@@ -498,7 +499,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.7.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.8.0"}
 
 
 @app.get("/ready")
@@ -509,6 +510,99 @@ def ready():
         return {"status": "ready", "storage": "sqlite"}
     except sqlite3.Error as exc:
         raise HTTPException(status_code=503, detail=f"Storage unavailable: {exc}")
+
+
+@app.post("/api/auth/login")
+def login(request: LoginRequest):
+    username = request.username.strip()
+    if not username or not request.password:
+        raise HTTPException(status_code=400, detail="Username and password are required")
+    with db() as connection:
+        row = connection.execute(
+            "SELECT user_id, username, role, password_hash FROM users WHERE username=? AND revoked_at IS NULL",
+            (username,),
+        ).fetchone()
+    if not row or not verify_password(request.password, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    raw_session = "soc_session_" + secrets.token_urlsafe(36)
+    key_id = "sess_" + secrets.token_hex(8)
+    with db() as connection:
+        connection.execute(
+            "INSERT INTO api_keys(key_id,name,role,key_hash,created_at) VALUES (?,?,?,?,?)",
+            (key_id, "session:" + row["username"], row["role"], hash_api_key(raw_session), iso_now()),
+        )
+    return {"session_token": raw_session, "username": row["username"], "role": row["role"], "expires": "session"}
+
+
+@app.get("/api/auth/users")
+def list_users(x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin"})
+    with db() as connection:
+        rows = connection.execute(
+            "SELECT user_id,username,role,created_at,revoked_at FROM users ORDER BY username"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.post("/api/auth/users/generate")
+def generate_user(
+    request: UserGenerate,
+    x_api_key: str | None = Header(default=None),
+    x_actor: str | None = Header(default=None),
+):
+    actor, _ = require_role(x_api_key, {"admin"})
+    role = request.role.lower().strip()
+    if role in RESERVED_USER_ROLES or role not in ALLOWED_USER_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail="Only admin and analyst credentials can be generated. super_admin is reserved for future use.",
+        )
+    username = (request.username or "").strip().lower()
+    if username:
+        if not username.replace("_", "").replace("-", "").isalnum():
+            raise HTTPException(status_code=400, detail="Username may contain only letters, numbers, underscores, or hyphens")
+        username = username[:40]
+    else:
+        prefix = "admin" if role == "admin" else "analyst"
+        username = f"{prefix}_{secrets.token_hex(3)}"
+    password = secrets.token_urlsafe(18) + "A1!"
+    password_hash = hash_password(password)
+    user_id = "usr_" + secrets.token_hex(8)
+    try:
+        with db() as connection:
+            connection.execute(
+                "INSERT INTO users(user_id,username,role,password_hash,created_at) VALUES (?,?,?,?,?)",
+                (user_id, username, role, password_hash, iso_now()),
+            )
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="Username already exists")
+    audit("create_user", user_id, x_actor or actor)
+    return {
+        "user_id": user_id,
+        "username": username,
+        "role": role,
+        "password": password,
+        "warning": "Copy the password now. It is not displayed again.",
+    }
+
+
+@app.post("/api/auth/users/{user_id}/revoke")
+def revoke_user(
+    user_id: str,
+    x_api_key: str | None = Header(default=None),
+    x_actor: str | None = Header(default=None),
+):
+    actor, _ = require_role(x_api_key, {"admin"})
+    with db() as connection:
+        row = connection.execute("SELECT username FROM users WHERE user_id=?", (user_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        if row["username"] == actor:
+            raise HTTPException(status_code=400, detail="You cannot revoke the account currently being used")
+        connection.execute("UPDATE users SET revoked_at=? WHERE user_id=?", (iso_now(), user_id))
+    audit("revoke_user", user_id, x_actor or actor)
+    return {"user_id": user_id, "revoked": True}
 
 
 @app.get("/api/me")
