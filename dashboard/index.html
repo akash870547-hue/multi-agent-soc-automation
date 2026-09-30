@@ -14,8 +14,8 @@
 </div></header>
 <main class="mx-auto max-w-7xl px-6 py-8">
 <section class="mb-8"><h1 class="text-3xl font-bold">Security Operations Dashboard</h1><p class="mt-2 max-w-3xl text-slate-400">Research implementation of a multi-agent framework for SOC automation and incident response.</p></section>
-<section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Active Alerts</div><div id="m-active" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Critical</div><div id="m-critical" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Investigating</div><div id="m-investigating" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Resolved</div><div id="m-resolved" class="mt-2 text-3xl font-bold">0</div></div>
+<section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+<div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Active Alerts</div><div id="m-active" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Critical</div><div id="m-critical" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Investigating</div><div id="m-investigating" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Resolved</div><div id="m-resolved" class="mt-2 text-3xl font-bold">0</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Avg MTTD</div><div id="m-mttd" class="mt-2 text-2xl font-bold">N/A</div></div><div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Avg MTTR</div><div id="m-mttr" class="mt-2 text-2xl font-bold">N/A</div></div>
 </section>
 <section class="mt-8 grid gap-6 lg:grid-cols-3">
 <div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-6">
@@ -27,7 +27,7 @@
 <section class="mt-6 grid gap-6 lg:grid-cols-2">
 <div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Detail</h2><pre id="detail" class="mt-4 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-300">Select an incident.</pre>
 <div id="reasoningCard" class="mt-3 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"><div class="text-xs uppercase tracking-wide text-slate-500">Agent Reasoning</div><div id="reasoningSummary" class="mt-2 text-sm"></div><div id="reasoningMeta" class="mt-2 text-xs text-slate-400"></div></div><div id="actions" class="mt-3 hidden gap-2">
-<button id="approveBtn" onclick="approveSelected()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Approve Response</button>
+<button id="approveBtn" onclick="approveSelected()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Approve Response</button><button id="ackBtn" onclick="acknowledgeSelected()" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400">Acknowledge</button><button id="resolveBtn" onclick="resolveSelected()" class="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-violet-400">Resolve</button>
 <span id="governance" class="rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-400"></span>
 </div></div>
 <div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Event Ingestion</h2>
@@ -63,10 +63,23 @@ function showIncident(id){
  actions.classList.remove("hidden"); actions.classList.add("flex");
  document.getElementById("approveBtn").disabled=approved;
  document.getElementById("approveBtn").textContent=approved?"Response Approved":"Approve Response";
- document.getElementById("governance").textContent=approved?"Human approval recorded":"Human approval required before response";
+ document.getElementById("governance").textContent=approved?"Human approval recorded":"Human approval required before response";document.getElementById("ackBtn").disabled=x.status!=="open";document.getElementById("resolveBtn").disabled=x.status==="resolved";
  const reasoning=x.reasoning||{}; const card=document.getElementById("reasoningCard"); card.classList.toggle("hidden",!reasoning.summary);
  if(reasoning.summary){document.getElementById("reasoningSummary").textContent=reasoning.summary;document.getElementById("reasoningMeta").textContent=`Priority ${reasoning.priority||"N/A"} • ${reasoning.engine||"unknown engine"} • ${(reasoning.next_steps||[]).length} recommended next step(s)`;}
 }
+async function lifecycleAction(action){
+ if(!selectedIncidentId||!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API to update incident lifecycle.";return;}
+ try{
+  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/incidents/"+encodeURIComponent(selectedIncidentId)+"/"+action,{method:"POST"});
+  if(!r.ok)throw new Error("API "+r.status);
+  const updated=await r.json();
+  localIncidents=localIncidents.map(x=>x.incident_id===updated.incident_id?updated:x);
+  showIncident(updated.incident_id); renderIncidents(localIncidents);
+  document.getElementById("notice").textContent="Incident status updated: "+updated.status+".";
+ }catch(e){document.getElementById("notice").textContent="Lifecycle update failed: "+e.message;}
+}
+function acknowledgeSelected(){lifecycleAction("acknowledge")}
+function resolveSelected(){lifecycleAction("resolve")}
 async function approveSelected(){
  if(!selectedIncidentId||!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API to record approval.";return;}
  try{
@@ -107,7 +120,7 @@ async function loadLive(){
   document.getElementById("m-active").textContent=metricsData.active_alerts;
   document.getElementById("m-critical").textContent=metricsData.critical;
   document.getElementById("m-investigating").textContent=metricsData.investigating;
-  document.getElementById("m-resolved").textContent=metricsData.resolved;
+  document.getElementById("m-resolved").textContent=metricsData.resolved;document.getElementById("m-mttd").textContent=metricsData.mttd_seconds==null?"N/A":metricsData.mttd_seconds+"s";document.getElementById("m-mttr").textContent=metricsData.mttr_seconds==null?"N/A":metricsData.mttr_seconds+"s";
   document.getElementById("mode").textContent="LIVE API";
   document.getElementById("notice").textContent="Connected to FastAPI SOC backend.";
  }catch(e){renderAgents();renderIncidents([]);document.getElementById("notice").textContent="API unavailable, demo mode active.";}
