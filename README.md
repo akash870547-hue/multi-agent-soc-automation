@@ -89,7 +89,7 @@ Useful endpoints:
 
 The default reasoning engine is deterministic and requires no API key. To enable the optional OpenAI provider, install `requirements-llm.txt`, set `OPENAI_API_KEY`, and set `SOC_REASONING_PROVIDER=openai`. The model can be selected with `SOC_REASONING_MODEL`.
 
-The adapter uses the OpenAI Responses API and keeps response actions behind the existing human approval gate. OpenAI documents the Responses API and current model catalog in its platform documentation. citeturn0search0turn0search1
+The adapter uses the OpenAI Responses API and keeps response actions behind the existing human approval gate.
 
 ### Optional API authentication
 
