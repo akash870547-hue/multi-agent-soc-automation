@@ -83,7 +83,7 @@ Useful endpoints:
 - `POST /api/events` - ingest and process a security event
 - `POST /api/incidents/{incident_id}/approve` - human approval gate
 - `POST /api/incidents/{incident_id}/acknowledge` - acknowledge an incident
-- `POST /api/incidents/{incident_id}/resolve` - resolve an incident
+- `POST /api/incidents/{incident_id}/resolve` - resolve an incident\n- `GET /api/threat-intel/{indicator}` - optional IOC enrichment\n- `GET /api/audit-logs` - recent auditable state-changing actions
 
 ### Optional LLM reasoning
 
@@ -99,7 +99,7 @@ Set `SOC_API_KEY` to protect event ingestion and incident state-changing endpoin
 SOC_API_KEY=change-me uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-The public GitHub Pages dashboard runs in demo mode by default. To connect it to a running API, open the dashboard with an `api` query parameter, for example:
+The public GitHub Pages dashboard runs in demo mode by default. When an API URL is supplied with `?api=...`, the dashboard connects to the FastAPI backend and sends the optional `X-API-Key` header for state-changing operations. The API key is stored in browser local storage. To connect it to a running API, open the dashboard with an `api` query parameter, for example:
 
 `?api=http://localhost:8000`
 
@@ -138,7 +138,7 @@ pytest
 - [x] Optional API-key authentication
 - [ ] Role-based access
 - [x] Initial MTTD/MTTR experiment dataset and classification evaluation framework
-- [ ] Threat intelligence provider adapters
+- [x] Optional threat intelligence provider adapter\n- [x] API audit logging
 - [ ] Production backend deployment
 - [ ] Production-grade live dashboard
 
