@@ -328,23 +328,44 @@ const attackSelect=document.getElementById("attackType") || document.createEleme
 if(!attackSelect.isConnected)document.body.appendChild(attackSelect);
 attackSelect.innerHTML=attackOptions.map(p=>'<option value="'+p.key+'">'+escapeHtml(p.title)+' • '+escapeHtml(p.id)+'</option>').join("");
 
-const stageDefinitions=[
- {id:"ingest",label:"01 • Event Ingestion",agent:"Event Pipeline",purpose:"Capture and preserve the structured security event."},
- {id:"detect",label:"02 • Detection Engine",agent:"Detection Engine",purpose:"Match the event against security detection logic."},
- {id:"correlate",label:"03 • Correlation Engine",agent:"Correlation Engine",purpose:"Connect the event with related activity using security pivots."},
- {id:"triage",label:"04 • Triage Agent",agent:"Triage Agent",purpose:"Assign severity, confidence and incident priority."},
- {id:"intel",label:"05 • Threat Intelligence Agent",agent:"Threat Intelligence Agent",purpose:"Enrich indicators and map the behavior to MITRE ATT&CK."},
- {id:"investigate",label:"06 • Investigation Agent",agent:"Investigation Agent",purpose:"Assemble evidence, findings and affected assets."},
- {id:"reason",label:"07 • Reasoning Engine",agent:"Reasoning Engine",purpose:"Explain what happened, why it matters and what should happen next."},
- {id:"approve",label:"08 • Human Approval Gate",agent:"Governance Layer",purpose:"Pause consequential response actions for human review."},
- {id:"respond",label:"09 • Response Agent",agent:"Response Agent",purpose:"Prepare and simulate the approved containment or response action."},
- {id:"report",label:"10 • Reporting Agent",agent:"Reporting Agent",purpose:"Convert the completed investigation into a professional incident report."}
+const stageBase=[
+ {id:"ingest",label:"01 • Event Signal",agent:"Event Pipeline",purpose:"Capture and preserve the structured security event."},
+ {id:"detect",label:"02 • Detection",agent:"Detection Engine",purpose:"Match the event against security detection logic."},
+ {id:"correlate",label:"03 • Correlation",agent:"Correlation Engine",purpose:"Connect the event with related activity using security pivots."},
+ {id:"triage",label:"04 • Triage",agent:"Triage Agent",purpose:"Assign severity, confidence and incident priority."},
+ {id:"intel",label:"05 • Threat Intelligence",agent:"Threat Intelligence Agent",purpose:"Enrich indicators and map the behavior to MITRE ATT&CK."},
+ {id:"investigate",label:"06 • Investigation",agent:"Investigation Agent",purpose:"Assemble evidence, findings and affected assets."},
+ {id:"reason",label:"07 • Reasoning",agent:"Reasoning Engine",purpose:"Explain what happened, why it matters and what should happen next."},
+ {id:"approve",label:"08 • Human Approval",agent:"Governance Layer",purpose:"Pause consequential response actions for human review."},
+ {id:"respond",label:"09 • Response",agent:"Response Agent",purpose:"Prepare and simulate the approved containment or response action."},
+ {id:"report",label:"10 • Report",agent:"Reporting Agent",purpose:"Convert the completed investigation into a professional incident report."}
 ];
+
+const workflowVariants={
+ sql:["SQL Injection Signal","SQL Injection Detection","Web Request Correlation","Web Exploitation Triage","Exploit & IOC Enrichment","WAF + Database Investigation","Database Exposure Assessment","Containment Approval Gate","Block Source + Protect Application","SQL Injection Incident Report"],
+ ransomware:["File Encryption Signal","Ransomware Detection","Host Activity Correlation","Impact Triage","Malware & Host Enrichment","Host + Backup Investigation","Encryption Blast-Radius Assessment","Recovery Approval Gate","Isolate Host + Protect Backups","Ransomware Incident Report"],
+ bruteforce:["Authentication Failure Signal","Brute Force Detection","Login Pattern Correlation","Credential Attack Triage","Account & Source Enrichment","VPN + Identity Investigation","Account-Takeover Assessment","Credential Response Approval","Block Source + Enforce MFA","Brute Force Incident Report"],
+ phishing:["Phishing Delivery Signal","Malicious Link Detection","Sender + URL Correlation","Phishing Triage","Domain & IOC Enrichment","Mailbox + Click Investigation","Credential-Theft Assessment","Mail Containment Approval","Quarantine + Revoke Sessions","Phishing Incident Report"],
+ powershell:["PowerShell Process Signal","Script Execution Detection","Process-Lineage Correlation","Endpoint Execution Triage","Command & Host Enrichment","PowerShell + Process Investigation","Execution-Chain Assessment","Endpoint Containment Approval","Contain Host + Block Command Lineage","PowerShell Incident Report"],
+ webshell:["Web Shell File Signal","Web Shell Detection","HTTP + Process Correlation","Server Persistence Triage","Server IOC Enrichment","Web Server + Filesystem Investigation","Persistence & Access Assessment","Server Isolation Approval","Remove Persistence + Rotate Secrets","Web Shell Incident Report"],
+ networkscan:["Scan Activity Signal","Service Scan Detection","Network Recon Correlation","Reconnaissance Triage","Network Context Enrichment","Firewall + IDS Investigation","Lateral-Movement Risk Assessment","Segmentation Approval Gate","Segment Source + Review Exposed Services","Network Reconnaissance Report"],
+ cred:["Credential Access Signal","Credential Dump Detection","Process + Account Correlation","Credential Theft Triage","Identity & Endpoint Enrichment","LSASS + Endpoint Investigation","Credential Exposure Assessment","Credential Reset Approval","Isolate Endpoint + Reset Credentials","Credential Dumping Incident Report"],
+ valid:["Unusual Login Signal","Valid Account Detection","Authentication Correlation","Identity Triage","Identity + Session Enrichment","IdP + Session Investigation","Account Misuse Assessment","Session Revocation Approval","Revoke Sessions + Reset Account","Valid Accounts Incident Report"],
+ malware:["Malicious File Signal","User Execution Detection","Process + DNS Correlation","Endpoint Malware Triage","File + Host Enrichment","Email + Process Investigation","Payload Execution Assessment","Endpoint Containment Approval","Quarantine File + Contain Host","Malicious File Incident Report"]
+};
+
+function getWorkflowStages(profile){
+ const names=workflowVariants[profile?.key]||[];
+ return stageBase.map(function(base,index){
+   const custom=names[index];
+   return {...base,label:String(index+1).padStart(2,"0")+" • "+(custom||((profile?.title||"Security")+" "+base.label.split(" • ").slice(1).join(" • ")))};
+ });
+}
 
 let participantName=sessionStorage.getItem(NAME_KEY)||"";
 let visitorReport=null;
 let mitreData={version:null,count:0,techniques:[]},mitrePageIndex=0;
-let demo={running:false,completed:-1,profile:null,startedAt:null,completedAt:null,timer:null};
+let demo={running:false,completed:-1,profile:null,stages:getWorkflowStages(currentProfile()),startedAt:null,completedAt:null,timer:null};
 
 function escapeHtml(v){
  return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -496,51 +517,56 @@ function workflowNodeHtml(st,i){
  const label=st.label.replace(/^\d+\s•\s/,'');
  return '<button onclick="focusWorkflowStage('+i+')" id="tree-node-'+i+'" class="workflow-tree-node '+tone+'"><span class="tree-number">'+number+'</span><span class="tree-label">'+escapeHtml(label)+'</span><span class="tree-state" aria-hidden="true"></span></button>';
 }
+function activeWorkflowStages(){
+ return demo.stages&&demo.stages.length?demo.stages:getWorkflowStages(demo.profile||currentProfile());
+}
 function focusWorkflowStage(index){
- const st=stageDefinitions[index]; if(!st)return;
- document.querySelectorAll('.workflow-node').forEach(function(x){x.classList.remove('ring-2','ring-sky-400/70')});
+ const stages=activeWorkflowStages();
+ const st=stages[index]; if(!st)return;
+ document.querySelectorAll('.workflow-tree-node').forEach(function(x){x.classList.remove('ring-2','ring-sky-400/70')});
  const node=document.getElementById('tree-node-'+index); if(node)node.classList.add('ring-2','ring-sky-400/70');
  document.getElementById('workflowFocusTitle').textContent=st.label+' • '+st.agent;
  document.getElementById('workflowFocusMeta').textContent=st.purpose+' • '+(index<=demo.completed?'Completed':'Queued');
- const content=(index<=demo.completed||demo.running&&index===demo.completed)?stageSpecific(demo.profile||currentProfile(),st.id):'<div class="text-slate-500">This stage is queued. Run the demo to reveal its attack-specific analysis.</div>';
+ const content=(index<=demo.completed||demo.running&&index===demo.completed)?stageSpecific(demo.profile||currentProfile(),st.id):'<div class="text-slate-500">This stage is queued. Run the selected attack workflow to reveal its attack-specific analysis.</div>';
  document.getElementById('workflowFocusContent').innerHTML=content;
 }
 function renderTimeline(){
+ const stages=activeWorkflowStages();
  const tree='<div class="creative-tree">'+
-   '<div class="tree-level">'+workflowNodeHtml(stageDefinitions[0],0)+'</div><div class="tree-link">↓</div>'+
-   '<div class="tree-level">'+workflowNodeHtml(stageDefinitions[1],1)+'</div><div class="tree-link">↓</div>'+
-   '<div class="tree-level">'+workflowNodeHtml(stageDefinitions[2],2)+'</div><div class="tree-link">↓</div>'+
+   '<div class="tree-level">'+workflowNodeHtml(stages[0],0)+'</div><div class="tree-link">↓</div>'+
+   '<div class="tree-level">'+workflowNodeHtml(stages[1],1)+'</div><div class="tree-link">↓</div>'+
+   '<div class="tree-level">'+workflowNodeHtml(stages[2],2)+'</div><div class="tree-link">↓</div>'+
    '<div class="tree-branch">'+
-      '<div class="tree-branch-item">'+workflowNodeHtml(stageDefinitions[3],3)+'</div>'+
-      '<div class="tree-branch-item">'+workflowNodeHtml(stageDefinitions[4],4)+'</div>'+
-      '<div class="tree-branch-item">'+workflowNodeHtml(stageDefinitions[5],5)+'</div>'+
+      '<div class="tree-branch-item">'+workflowNodeHtml(stages[3],3)+'</div>'+
+      '<div class="tree-branch-item">'+workflowNodeHtml(stages[4],4)+'</div>'+
+      '<div class="tree-branch-item">'+workflowNodeHtml(stages[5],5)+'</div>'+
    '</div>'+
    '<div class="tree-link">↓</div>'+
-   '<div class="tree-level">'+workflowNodeHtml(stageDefinitions[6],6)+'</div><div class="tree-link">↓</div>'+
-   '<div class="tree-level">'+workflowNodeHtml(stageDefinitions[7],7)+'</div><div class="tree-link">↓</div>'+
-   '<div class="tree-final">'+
-      workflowNodeHtml(stageDefinitions[8],8)+workflowNodeHtml(stageDefinitions[9],9)+
-   '</div>'+
+   '<div class="tree-level">'+workflowNodeHtml(stages[6],6)+'</div><div class="tree-link">↓</div>'+
+   '<div class="tree-level">'+workflowNodeHtml(stages[7],7)+'</div><div class="tree-link">↓</div>'+
+   '<div class="tree-final">'+workflowNodeHtml(stages[8],8)+workflowNodeHtml(stages[9],9)+'</div>'+
  '</div>';
  document.getElementById('workflowTree').innerHTML=tree;
- const progress=document.getElementById('workflowProgress');if(progress)progress.textContent=(Math.max(0,demo.completed)+1)+' / '+stageDefinitions.length;
+ const progress=document.getElementById('workflowProgress');if(progress)progress.textContent=(Math.max(0,demo.completed)+1)+' / '+stages.length;
  focusWorkflowStage(Math.max(0,demo.completed));
 }
 function updateSummary(){
  const p=demo.profile||currentProfile();
+ const stages=activeWorkflowStages();
  const a=document.getElementById("demoParticipant"),b=document.getElementById("demoAttack"),m=document.getElementById("demoMitre"),s=document.getElementById("demoStatus");
  if(a)a.textContent=participantName||"Not entered";
  if(b)b.textContent=p.title;
  if(m)m.textContent=p.id+" • "+p.name;
- if(s)s.textContent=demo.completed>=stageDefinitions.length-1?"Workflow complete":demo.running?"Running":"Ready";
+ if(s)s.textContent=demo.completed>=stages.length-1?"Workflow complete":demo.running?"Running":"Ready";
 }
 
 function runFullDemo(){
  if(!ensureParticipant())return;
  if(demo.running)return;
  const p=currentProfile();
+ const stages=getWorkflowStages(p);
  clearTimeout(demo.timer);
- demo={running:true,completed:-1,profile:p,startedAt:new Date().toISOString(),completedAt:null,timer:null};
+ demo={running:true,completed:-1,profile:p,stages:stages,startedAt:new Date().toISOString(),completedAt:null,timer:null};
  document.getElementById("reportSection").classList.add("hidden");
  document.getElementById("runDemoBtn").disabled=true;
  updateSummary();
@@ -548,9 +574,9 @@ function runFullDemo(){
  logPublic("demo_started",{attack:p.title,technique_id:p.id,technique:p.name});
  let i=0;
  const tick=()=>{
-  if(i>=stageDefinitions.length){
+  if(i>=stages.length){
    demo.running=false;
-   demo.completed=stageDefinitions.length-1;
+   demo.completed=stages.length-1;
    demo.completedAt=new Date().toISOString();
    document.getElementById("runDemoBtn").disabled=false;
    updateSummary();
@@ -562,7 +588,7 @@ function runFullDemo(){
   demo.completed=i;
   updateSummary();
   renderTimeline();
-  logPublic("demo_step",{attack:p.title,technique_id:p.id,step:i+1,step_name:stageDefinitions[i].label});
+  logPublic("demo_step",{attack:p.title,technique_id:p.id,step:i+1,step_name:stages[i].label});
   i++;
   demo.timer=setTimeout(tick,1200);
  };
@@ -581,7 +607,8 @@ function resetDemo(){
 function reportHtml(p){
  const reportId="SOC-DEMO-"+Date.now().toString().slice(-10);
  visitorReport={reportId,p,generatedAt:new Date().toISOString()};
- const timeline=stageDefinitions.map((s,i)=>'<tr><td>'+String(i+1).padStart(2,"0")+'</td><td>'+escapeHtml(s.label.replace(/^\d+ • /,""))+'</td><td>'+escapeHtml(s.agent)+'</td><td>Completed</td></tr>').join("");
+ const stages=getWorkflowStages(p);
+ const timeline=stages.map((s,i)=>'<tr><td>'+String(i+1).padStart(2,"0")+'</td><td>'+escapeHtml(s.label.replace(/^\d+ • /,""))+'</td><td>'+escapeHtml(s.agent)+'</td><td>Completed</td></tr>').join("");
  const findings=p.ioc.map(x=>'<li>'+escapeHtml(x)+'</li>').join("");
  const recommendations=p.response.split(". ").map(x=>x.trim()).filter(Boolean).map(x=>'<li>'+escapeHtml(x.endsWith(".")?x:x+".")+'</li>').join("");
  return '<div class="report-paper"><div class="bg-slate-950 px-7 py-6 text-white"><div class="text-xs uppercase tracking-[0.25em] text-sky-400">Multi-Agent SOC</div><div class="mt-2 text-2xl font-bold">Security Incident Demonstration Report</div><div class="mt-2 text-sm text-slate-400">Synthetic product walkthrough • '+escapeHtml(reportId)+'</div></div><div class="p-7"><div class="grid gap-4 md:grid-cols-4"><div><div class="text-[11px] uppercase tracking-wide text-slate-500">Participant</div><div class="mt-1 font-semibold">'+escapeHtml(participantName)+'</div></div><div><div class="text-[11px] uppercase tracking-wide text-slate-500">Attack</div><div class="mt-1 font-semibold">'+escapeHtml(p.title)+'</div></div><div><div class="text-[11px] uppercase tracking-wide text-slate-500">Severity</div><div class="mt-1 font-semibold">'+escapeHtml(p.severity)+'</div></div><div><div class="text-[11px] uppercase tracking-wide text-slate-500">MITRE</div><div class="mt-1 font-semibold">'+escapeHtml(p.id)+'</div></div></div><hr class="my-6"><h3 class="text-lg font-bold">1. Executive Summary</h3><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.reasoning)+'</p><p class="mt-2 text-sm leading-6 text-slate-700">Affected asset: '+escapeHtml(p.asset)+'. Potential impact: '+escapeHtml(p.impact)+'</p><h3 class="mt-6 text-lg font-bold">2. Incident Classification</h3><div class="mt-3 grid gap-3 md:grid-cols-3"><div class="rounded border p-3"><div class="text-[11px] text-slate-500">Technique</div><div class="mt-1 font-semibold">'+escapeHtml(p.name)+' ('+escapeHtml(p.id)+')</div></div><div class="rounded border p-3"><div class="text-[11px] text-slate-500">Tactic</div><div class="mt-1 font-semibold">'+escapeHtml(p.tactic)+'</div></div><div class="rounded border p-3"><div class="text-[11px] text-slate-500">Detection</div><div class="mt-1 font-semibold">93% confidence</div></div></div><h3 class="mt-6 text-lg font-bold">3. Detection and Correlation</h3><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.detection)+'</p><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.correlation)+'</p><h3 class="mt-6 text-lg font-bold">4. Investigation Findings</h3><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">'+findings+'</ul><p class="mt-3 text-sm leading-6 text-slate-700">'+escapeHtml(p.investigation)+'</p><h3 class="mt-6 text-lg font-bold">5. Multi-Agent Reasoning</h3><p class="mt-2 text-sm leading-6 text-slate-700">'+escapeHtml(p.reasoning)+'</p><h3 class="mt-6 text-lg font-bold">6. Response Recommendation</h3><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">'+recommendations+'</ul><h3 class="mt-6 text-lg font-bold">7. Human Governance</h3><p class="mt-2 text-sm leading-6 text-slate-700">The simulated Response Agent recommendation remained behind the human approval gate. No real production action was executed.</p><h3 class="mt-6 text-lg font-bold">8. Workflow Completion Record</h3><table class="mt-3 w-full border-collapse text-left text-sm"><thead><tr class="border-b"><th class="p-2">#</th><th class="p-2">Stage</th><th class="p-2">Agent</th><th class="p-2">Status</th></tr></thead><tbody>'+timeline+'</tbody></table><div class="mt-7 rounded-lg bg-slate-50 p-4 text-xs text-slate-600"><b>Demonstration notice:</b> This document describes a synthetic security workflow created for product demonstration. It is not evidence of an actual compromise or production incident.</div><div class="mt-6 text-xs text-slate-500">Generated: '+escapeHtml(new Date(visitorReport.generatedAt).toLocaleString())+' • Participant: '+escapeHtml(participantName)+'</div></div></div>';
@@ -598,7 +625,7 @@ function toggleReportView(){
 }
 function generateReport(auto=false){
  if(!ensureParticipant()||!demo.profile)return;
- if(demo.completed<stageDefinitions.length-1){
+ if(demo.completed<activeWorkflowStages().length-1){
   if(!auto){alert("Complete the full workflow before generating the report.");}
   return;
  }
