@@ -62,11 +62,15 @@ python -m soc_automation
 
 The repository includes a SOC dashboard prototype in `dashboard/index.html`.
 
-After GitHub Pages is enabled for the repository, the dashboard is available at:
+The public product test is available at:
 
 `https://akash870547-hue.github.io/multi-agent-soc-automation/`
 
-The dashboard is the presentation layer. The Python API and agent pipeline run separately.
+The authenticated production Admin Console is available separately at:
+
+`https://akash870547-hue.github.io/multi-agent-soc-automation/dashboard/admin.html`
+
+The public page is isolated and uses local simulated results only. It does not call the production backend or expose API keys, incidents, audit logs, or monitored customer targets. The Admin Console connects to the FastAPI backend and requires authentication.
 
 ## API backend
 
@@ -140,7 +144,7 @@ The runner reports classification metrics for the current multi-agent pipeline a
 
 `render.yaml` provides a Docker-based deployment blueprint with a persistent SQLite disk and `/ready` health check. Set the role/API secrets in the hosting provider rather than committing them. After deployment, connect GitHub Pages with `?api=https://YOUR-API-HOST`.
 
-The repository provides deployment configuration, but actual hosting requires the owner to create the service and supply production secrets/billing credentials.
+The repository provides deployment configuration. Public product testing and the authenticated Admin Console are intentionally separated so production SOC data and credentials are not exposed through the public demo.
 
 ## Test
 
