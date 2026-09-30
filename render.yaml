@@ -13,6 +13,10 @@ services:
         value: /data/soc_automation.db
       - key: SOC_CORS_ORIGINS
         value: https://akash870547-hue.github.io
+      - key: SOC_ENABLE_WEBSITE_MONITOR
+        value: "true"
+      - key: SOC_MONITOR_INTERVAL_SECONDS
+        value: "300"
       - key: SOC_RATE_LIMIT
         value: "60"
       - key: SOC_RATE_WINDOW_SECONDS
