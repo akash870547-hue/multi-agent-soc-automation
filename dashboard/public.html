@@ -237,27 +237,59 @@ let authMode="login";
 function openAuth(mode="login"){if(!ensureParticipant())return;document.getElementById("authModal").classList.remove("hidden");document.getElementById("authModal").classList.add("flex");setAuthMode(mode);setTimeout(()=>document.getElementById("authUsername")?.focus(),0);}
 function closeAuth(){const x=document.getElementById("authModal");x.classList.add("hidden");x.classList.remove("flex");}
 function setAuthMode(mode){
- authMode=mode;const r=mode==="register";
- document.getElementById("authLoginTab").className="rounded-md px-3 py-2 text-xs font-semibold "+(r?"text-slate-400":"bg-slate-800");
- document.getElementById("authRegisterTab").className="rounded-md px-3 py-2 text-xs font-semibold "+(r?"bg-slate-800":"text-slate-400");
- document.getElementById("registerRoleWrap").classList.toggle("hidden",!r);
- document.getElementById("authPassword").autocomplete=r?"new-password":"current-password";
- document.getElementById("authSubmit").textContent=r?"Create Analyst Account":"Sign in";
- document.getElementById("authMessage").textContent=r?"Analyst registration is available. Admin accounts are provisioned by an administrator.":"Admin and Analyst credentials are supported.";
- if(r)document.getElementById("authRegisterRole").value="analyst";
+ authMode=mode;
+ const reset=mode==='reset',register=mode==='register';
+ document.getElementById('authLoginTab').className='rounded-md px-2 py-2 text-xs font-semibold '+(!reset&&!register?'bg-slate-800':'text-slate-400');
+ document.getElementById('authRegisterTab').className='rounded-md px-2 py-2 text-xs font-semibold '+(register?'bg-slate-800':'text-slate-400');
+ document.getElementById('authResetTab').className='rounded-md px-2 py-2 text-xs font-semibold '+(reset?'bg-slate-800':'text-slate-400');
+ document.getElementById('authResetToken').classList.toggle('hidden',!reset);
+ document.getElementById('authPassword').autocomplete=(register||reset)?'new-password':'current-password';
+ document.getElementById('authPassword').placeholder=reset?'New password':'Password';
+ document.getElementById('authSubmit').textContent=reset?'Reset password':register?'Create Analyst Account':'Sign in';
+ document.getElementById('authMessage').textContent=reset?'Paste the one-time reset code issued by an administrator.':register?'Create an Analyst account for console access.':'Admin and Analyst credentials are supported.';
 }
 async function submitAuth(event){
- event.preventDefault();const username=document.getElementById("authUsername").value.trim(),password=document.getElementById("authPassword").value,msg=document.getElementById("authMessage");
- msg.className="min-h-5 text-xs text-slate-400";msg.textContent="Processing...";
+ event.preventDefault();
+ const username=document.getElementById('authUsername').value.trim();
+ const password=document.getElementById('authPassword').value;
+ const msg=document.getElementById('authMessage');
+ msg.className='min-h-5 text-xs text-slate-400';
+ msg.textContent='Processing...';
  try{
-  if(authMode==="register"){
-   const role=document.getElementById("authRegisterRole").value;if(role!=="analyst"){msg.textContent="Admin registration is restricted. Ask an administrator for credentials.";msg.className="min-h-5 text-xs text-amber-300";return;}
-   const r=await fetch(API_BASE+"/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password,role})}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("Registration failed: API "+r.status));
-   msg.textContent="Account created. Switching to login...";msg.className="min-h-5 text-xs text-emerald-400";setAuthMode("login");document.getElementById("authUsername").value=username;document.getElementById("authPassword").value="";return;
+  if(authMode==='register'){
+   const r=await fetch(API_BASE+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role:'analyst'})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.detail||('Registration failed: API '+r.status));
+   msg.textContent='Analyst account created. Switching to login...';
+   msg.className='min-h-5 text-xs text-emerald-400';
+   setAuthMode('login');
+   document.getElementById('authUsername').value=username;
+   document.getElementById('authPassword').value='';
+   return;
   }
-  const r=await fetch(API_BASE+"/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||("Login failed: API "+r.status));
-  localStorage.setItem("soc_api_key",d.session_token);localStorage.setItem("soc_user",d.username+"|"+d.role);closeAuth();window.location.href="admin.html";
- }catch(e){msg.textContent=e.message;msg.className="min-h-5 text-xs text-amber-300";}
+  if(authMode==='reset'){
+   const resetToken=document.getElementById('authResetToken').value.trim();
+   const r=await fetch(API_BASE+'/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,reset_token:resetToken,new_password:password})});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(d.detail||('Reset failed: API '+r.status));
+   msg.textContent='Password reset successfully. You can now sign in.';
+   msg.className='min-h-5 text-xs text-emerald-400';
+   setAuthMode('login');
+   document.getElementById('authPassword').value='';
+   document.getElementById('authResetToken').value='';
+   return;
+  }
+  const r=await fetch(API_BASE+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||('Login failed: API '+r.status));
+  localStorage.setItem('soc_api_key',d.session_token);
+  localStorage.setItem('soc_user',d.username+'|'+d.role);
+  closeAuth();
+  window.location.href='admin.html';
+ }catch(e){
+  msg.textContent=e.message;
+  msg.className='min-h-5 text-xs text-amber-300';
+ }
 }
 
 async function logPublic(action,detail={}){
@@ -306,21 +338,34 @@ function stageSpecific(p,id){
  return "";
 }
 
-function renderTimeline(){
- const completed=demo.completed;
- document.getElementById("workflowTimeline").innerHTML=stageDefinitions.map((s,i)=>{
-  const active=demo.running&&i===completed+1;
-  const done=i<=completed;
-  const status=done?"COMPLETE":active?"ACTIVE":"QUEUED";
-  const cardClass=done?"demo-complete border-emerald-500/20 bg-emerald-500/5":active?"demo-current border-sky-500/30 bg-sky-500/5":"border-slate-800 bg-slate-950";
-  return '<article id="stage-'+i+'" class="demo-card rounded-xl border p-5 '+cardClass+'"><div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div class="text-sm font-semibold">'+escapeHtml(s.label)+'</div><div class="mt-1 text-xs text-slate-500">'+escapeHtml(s.agent)+' • '+escapeHtml(s.purpose)+'</div></div><span class="rounded-full border px-3 py-1 text-xs '+(done?"border-emerald-500/30 bg-emerald-500/10 text-emerald-400":active?"border-sky-500/30 bg-sky-500/10 text-sky-300":"border-slate-700 text-slate-500")+'">'+status+'</span></div>'+ (done||active?'<div class="mt-4 text-sm text-slate-300">Attack-specific workflow analysis for <b>'+escapeHtml(demo.profile?.title||"selected attack")+'</b>.</div><div class="mt-3">'+stageSpecific(demo.profile||currentProfile(),s.id)+'</div>': '<div class="mt-4 text-xs text-slate-600">Waiting for the previous stage.</div>')+'</article>';
- }).join("");
- document.getElementById("workflowProgress").textContent=(demo.completed+1)+" / "+stageDefinitions.length;
- if(completed>=0){
-  setTimeout(()=>document.getElementById("stage-"+completed)?.scrollIntoView({behavior:"smooth",block:"center"}),50);
- }
+function workflowNodeHtml(st,i){
+ const active=demo.running&&i===demo.completed;
+ const done=i<=demo.completed;
+ const status=done?'COMPLETE':active?'ACTIVE':'QUEUED';
+ const tone=done?'border-emerald-500/40 bg-emerald-500/10':active?'border-sky-500/50 bg-sky-500/10':'border-slate-800 bg-slate-900';
+ const badge=done?'text-emerald-300':active?'text-sky-300':'text-slate-500';
+ const parts=st.label.split(' • ');
+ return '<button onclick="focusWorkflowStage('+i+')" id="tree-node-'+i+'" class="workflow-node w-full rounded-2xl border p-4 text-left '+tone+'"><div class="flex items-start justify-between gap-3"><div><div class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">'+escapeHtml(parts[0])+'</div><div class="mt-1 font-semibold">'+escapeHtml(parts.slice(1).join(' • '))+'</div><div class="mt-1 text-[11px] leading-5 text-slate-500">'+escapeHtml(st.purpose)+'</div></div><span class="text-[10px] font-semibold '+badge+'">'+status+'</span></div></button>';
 }
-
+function focusWorkflowStage(index){
+ const st=stageDefinitions[index]; if(!st)return;
+ document.querySelectorAll('.workflow-node').forEach(function(x){x.classList.remove('ring-2','ring-sky-400/70')});
+ const node=document.getElementById('tree-node-'+index); if(node)node.classList.add('ring-2','ring-sky-400/70');
+ document.getElementById('workflowFocusTitle').textContent=st.label+' • '+st.agent;
+ document.getElementById('workflowFocusMeta').textContent=st.purpose+' • '+(index<=demo.completed?'Completed':'Queued');
+ const content=(index<=demo.completed||demo.running&&index===demo.completed)?stageSpecific(demo.profile||currentProfile(),st.id):'<div class="text-slate-500">This stage is queued. Run the demo to reveal its attack-specific analysis.</div>';
+ document.getElementById('workflowFocusContent').innerHTML=content;
+}
+function renderTimeline(){
+ const rows=[{items:[0,1,2],caption:'EVENT → DETECTION → CORRELATION',className:''},{items:[3],caption:'TRIAGE DECISION',className:'single'},{items:[4,5,6],caption:'SPECIALIST ANALYSIS BRANCH',className:''},{items:[7],caption:'HUMAN GOVERNANCE CHECKPOINT',className:'single'},{items:[8,9],caption:'RESPONSE → REPORT',className:'final'}];
+ const html=rows.map(function(row,ri){
+  const cells=row.items.map(function(i){return '<div>'+workflowNodeHtml(stageDefinitions[i],i)+'</div>';}).join('');
+  return '<div class="workflow-tree-row '+row.className+'"><div class="tree-caption">'+row.caption+'</div><div class="workflow-tree-grid">'+cells+'</div></div>'+(ri<rows.length-1?'<div class="tree-arrow">↓</div>':'');
+ }).join('');
+ document.getElementById('workflowTree').innerHTML='<div class="workflow-root"><div class="tree-root-chip">MULTI-AGENT SOC FLOW</div>'+html+'</div>';
+ document.getElementById('workflowProgress').textContent=(Math.max(0,demo.completed)+1)+' / '+stageDefinitions.length;
+ focusWorkflowStage(Math.max(0,demo.completed));
+}
 function updateSummary(){
  const p=demo.profile||currentProfile();
  document.getElementById("demoParticipant").textContent=participantName||"Not entered";
