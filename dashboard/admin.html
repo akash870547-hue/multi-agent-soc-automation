@@ -98,7 +98,7 @@ body.theme-graphite header{background:rgba(17,17,17,.96)!important}
 </div>
 <div id="userManager" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4">
   <div class="flex items-center justify-between"><div class="text-sm font-semibold">User Credential Management</div><button onclick="loadUsers()" class="text-xs text-sky-400">Refresh</button></div>
-  <p class="mt-1 text-xs text-slate-500">Generate separate Admin or Analyst credentials. Passwords are shown once.</p>
+  <p class="mt-1 text-xs text-slate-500">Generate managed credentials. You can also issue a one-time password reset code for an active user.</p>
   <div class="mt-3 grid gap-2 sm:grid-cols-3">
     <select id="userRole" class="rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs"><option value="analyst">Analyst</option><option value="admin">Admin</option></select>
     <input id="userName" class="rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs" placeholder="Optional username">
@@ -348,30 +348,35 @@ async function loadPublicMonitor(){
 async function loadUsers(){
  if(!API_BASE)return;
  try{
-  const r=await fetch(API_BASE+"/api/auth/users",{headers:{...API_HEADERS()}});
+  const r=await fetch(API_BASE+'/api/auth/users',{headers:{...API_HEADERS()}});
   const d=await r.json().catch(()=>[]);
-  if(!r.ok)throw new Error(d.detail||("API "+r.status));
-  const box=document.getElementById("userList");
-  box.innerHTML="";
-  if(!d.length){box.textContent="No generated users yet.";return;}
-  d.forEach(x=>{
-    const row=document.createElement("div");
-    row.className="flex items-center justify-between rounded border border-slate-800 p-2 text-xs";
-    const left=document.createElement("span");
-    left.textContent=x.username+" • "+x.role;
-    const right=document.createElement("span");
-    right.textContent=x.revoked_at?"REVOKED":"ACTIVE";
-    if(!x.revoked_at){
-      const b=document.createElement("button");
-      b.className="ml-2 text-red-400";
-      b.textContent="Revoke";
-      b.onclick=()=>revokeUser(x.user_id);
-      right.appendChild(b);
-    }
-    row.appendChild(left);row.appendChild(right);box.appendChild(row);
+  if(!r.ok)throw new Error(d.detail||('API '+r.status));
+  const box=document.getElementById('userList');box.innerHTML='';
+  if(!d.length){box.textContent='No managed users yet.';return;}
+  d.forEach(function(x){
+   const row=document.createElement('div');row.className='rounded border border-slate-800 p-3 text-xs';
+   const wrap=document.createElement('div');wrap.className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between';
+   const left=document.createElement('div');left.innerHTML='<div class="font-semibold">'+esc(x.username)+'</div><div class="mt-1 text-slate-500">'+esc(x.role.toUpperCase())+' • '+(x.revoked_at?'REVOKED':'ACTIVE')+'</div>';
+   const right=document.createElement('div');right.className='flex flex-wrap gap-2';
+   if(!x.revoked_at){
+    const reset=document.createElement('button');reset.className='rounded border border-amber-500/30 px-2 py-1 text-amber-300';reset.textContent='Reset password';reset.onclick=function(){issueResetToken(x.user_id)};right.appendChild(reset);
+    const revoke=document.createElement('button');revoke.className='rounded border border-red-500/30 px-2 py-1 text-red-300';revoke.textContent='Revoke';revoke.onclick=function(){revokeUser(x.user_id)};right.appendChild(revoke);
+   }
+   wrap.appendChild(left);wrap.appendChild(right);row.appendChild(wrap);box.appendChild(row);
   });
- }catch(e){document.getElementById("userList").textContent="User management unavailable.";}
+ }catch(e){document.getElementById('userList').textContent='User management unavailable.';}
 }
+async function issueResetToken(id){
+ try{
+  const r=await fetch(API_BASE+'/api/auth/users/'+encodeURIComponent(id)+'/reset-token',{method:'POST',headers:{...API_HEADERS()}});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||('Reset token generation failed: API '+r.status));
+  document.getElementById('newCredentials').classList.remove('hidden');
+  document.getElementById('newCredentialsValue').textContent='Username: '+d.username+'\nReset code: '+d.reset_token+'\nExpires: '+new Date(d.expires_at).toLocaleString()+'\n\nGive this one-time code to the user. It is shown only once.';
+  document.getElementById('notice').textContent='One-time password reset code generated for '+d.username+'.';
+ }catch(e){document.getElementById('notice').textContent=e.message;}
+}
+
 async function generateUser(){
  const role=document.getElementById("userRole").value;
  const username=document.getElementById("userName").value.trim();
