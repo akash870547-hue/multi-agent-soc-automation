@@ -11,6 +11,17 @@
   .demo-complete{box-shadow:0 0 0 1px rgba(16,185,129,.20)}
   .report-paper{background:#fff;color:#111827}
   .print-only{display:none}
+  .workflow-tree-row{position:relative}
+  .workflow-tree-grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .workflow-tree-row.single .workflow-tree-grid{grid-template-columns:minmax(220px,520px);justify-content:center}
+  .workflow-tree-row.final .workflow-tree-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-width:760px;margin:0 auto}
+  .workflow-node{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .workflow-node:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.45);box-shadow:0 12px 30px rgba(2,132,199,.10)}
+  .tree-caption{text-align:center;font-size:10px;letter-spacing:.18em;color:#64748b;margin:4px 0 8px}
+  .tree-arrow{text-align:center;color:#475569;font-size:22px;line-height:1;padding:7px 0}
+  .tree-root-chip{display:inline-flex;margin:0 auto 16px;border:1px solid rgba(56,189,248,.25);background:rgba(56,189,248,.06);padding:6px 12px;border-radius:999px;font-size:10px;letter-spacing:.18em;color:#7dd3fc}
+  .workflow-root{display:flex;flex-direction:column;align-items:stretch}
+  @media(max-width:800px){.workflow-tree-grid,.workflow-tree-row.final .workflow-tree-grid{grid-template-columns:1fr}.workflow-tree-row.single .workflow-tree-grid{grid-template-columns:1fr}}
   body{transition:background-color .2s ease,color .2s ease}
   body[data-theme="light"]{background:#f8fafc!important;color:#0f172a!important}
   body[data-theme="light"] .bg-slate-950,body[data-theme="light"] .bg-slate-900{background:#fff!important}
@@ -45,18 +56,20 @@
 <div id="authModal" class="fixed inset-0 hidden items-center justify-center bg-slate-950/75 p-5 backdrop-blur-sm">
   <div class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
     <div class="flex items-center justify-between"><div><div class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">Console Access</div><h2 class="mt-1 text-xl font-bold">Login / Register</h2></div><button onclick="closeAuth()" class="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-400 hover:bg-slate-800">Close</button></div>
-    <div class="mt-5 grid grid-cols-2 rounded-lg border border-slate-800 bg-slate-950 p-1">
-      <button id="authLoginTab" onclick="setAuthMode('login')" class="rounded-md bg-slate-800 px-3 py-2 text-xs font-semibold">Login</button>
-      <button id="authRegisterTab" onclick="setAuthMode('register')" class="rounded-md px-3 py-2 text-xs text-slate-400">Register</button>
+    <div class="mt-5 grid grid-cols-3 rounded-lg border border-slate-800 bg-slate-950 p-1">
+      <button id="authLoginTab" onclick="setAuthMode('login')" class="rounded-md bg-slate-800 px-2 py-2 text-xs font-semibold">Login</button>
+      <button id="authRegisterTab" onclick="setAuthMode('register')" class="rounded-md px-2 py-2 text-xs text-slate-400">Create account</button>
+      <button id="authResetTab" onclick="setAuthMode('reset')" class="rounded-md px-2 py-2 text-xs text-slate-400">Reset password</button>
     </div>
     <form id="authForm" class="mt-5 space-y-3" onsubmit="submitAuth(event)">
       <input id="authUsername" maxlength="40" autocomplete="username" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Username" required>
+      <input id="authResetToken" maxlength="120" autocomplete="one-time-code" class="hidden w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="One-time reset code">
       <input id="authPassword" minlength="12" autocomplete="current-password" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Password" type="password" required>
-      <div id="registerRoleWrap" class="hidden"><select id="authRegisterRole" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm"><option value="analyst">Analyst account</option><option value="admin">Admin account (restricted)</option></select></div>
+      <div id="registerRoleWrap" class="hidden"></div>
       <div id="authMessage" class="min-h-5 text-xs text-slate-500">Admin and Analyst credentials are supported.</div>
       <button id="authSubmit" class="w-full rounded-lg bg-sky-500 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Sign in</button>
     </form>
-    <div class="mt-4 text-xs text-slate-500">Admin accounts are provisioned by an administrator. Public registration creates Analyst access only.</div>
+    <div class="mt-4 text-xs text-slate-500">New accounts are Analyst accounts. Password reset requires a one-time reset code issued by an administrator.</div>
   </div>
 </div>
 
@@ -92,37 +105,17 @@
 </section>
 
 <section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-  <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-    <div>
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Attack simulation</div>
-      <h2 class="mt-1 text-2xl font-bold">Run the Full SOC Workflow</h2>
-      <p class="mt-1 text-xs text-slate-500">Different attacks use different investigation, MITRE, reasoning and response narratives.</p>
-    </div>
-    <div class="flex flex-col gap-2 sm:flex-row">
-      <select id="attackType" class="min-w-80 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm"></select>
-      <button id="runDemoBtn" onclick="runFullDemo()" class="rounded-lg bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">▶ Run Full Demo</button>
-      <button onclick="resetDemo()" class="rounded-lg border border-slate-700 px-4 py-3 text-sm hover:bg-slate-800">Reset</button>
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div><div class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">SOC Decision Map</div><h2 class="mt-1 text-2xl font-bold">Follow the incident from signal to response</h2><p class="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Click a node to inspect that stage. As the simulation runs, completed stages stay on the map and their attack-specific evidence remains available.</p></div>
+    <div class="flex flex-wrap gap-2 text-[11px] text-slate-500"><span class="rounded-full border border-slate-700 px-2 py-1">Click to inspect</span><span class="rounded-full border border-slate-700 px-2 py-1">State stays visible</span><span class="rounded-full border border-slate-700 px-2 py-1">Human gate</span></div>
+  </div>
+  <div id="workflowTimeline" class="mt-6">
+    <div id="workflowTree" class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 sm:p-6"></div>
+    <div class="mt-5 grid gap-4 lg:grid-cols-[.82fr_1.18fr]">
+      <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5"><div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Current stage</div><div id="workflowFocusTitle" class="mt-2 text-lg font-semibold">Select a node</div><div id="workflowFocusMeta" class="mt-1 text-xs text-slate-500">Each stage has a purpose, agent and execution state.</div></div>
+      <div class="rounded-2xl border border-sky-500/15 bg-sky-500/5 p-5"><div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-300">Stage intelligence</div><div id="workflowFocusContent" class="mt-3 text-sm leading-6 text-slate-300">Click a workflow node to reveal the attack-specific evidence, reasoning and next action.</div></div>
     </div>
   </div>
-
-  <div class="mt-5 grid gap-3 sm:grid-cols-4">
-    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">Participant</div><div id="demoParticipant" class="mt-1 font-semibold">Not entered</div></div>
-    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">Attack</div><div id="demoAttack" class="mt-1 font-semibold">N/A</div></div>
-    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">MITRE</div><div id="demoMitre" class="mt-1 font-semibold">N/A</div></div>
-    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">Status</div><div id="demoStatus" class="mt-1 font-semibold">Ready</div></div>
-  </div>
-</section>
-
-<section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-  <div class="flex items-center justify-between gap-4">
-    <div>
-      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Complete workflow timeline</div>
-      <h2 class="mt-1 text-2xl font-bold">Nothing disappears. Everything stays visible.</h2>
-      <p class="mt-1 text-xs text-slate-500">Run the demo and each card will progress from queued → active → complete. The completed cards remain expanded for review.</p>
-    </div>
-    <span id="workflowProgress" class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">0 / 10</span>
-  </div>
-  <div id="workflowTimeline" class="mt-6 space-y-3"></div>
 </section>
 
 <section id="reportSection" class="mt-6 hidden rounded-2xl border border-emerald-500/20 bg-slate-900 p-6">
@@ -169,17 +162,14 @@
   </div>
 </section>
 
-<section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-  <div class="flex items-center justify-between gap-4">
-    <div><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Separate utility</div><h2 class="mt-1 text-xl font-bold">Live HTTPS Security Check</h2><p class="mt-1 text-xs text-slate-500">This is separate from the synthetic SOC workflow.</p></div>
-  </div>
-  <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-    <input id="webTarget" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com" value="https://example.com">
-    <button onclick="runWebTest()" class="rounded-lg bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Run HTTPS Check</button>
-  </div>
-  <div id="webResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
-</section>
 
+
+<section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+  <div class="grid gap-6 lg:grid-cols-[1.15fr_.85fr] lg:items-center">
+    <div><div class="text-xs font-semibold uppercase tracking-[0.18em] text-violet-400">Research & Publication</div><h2 class="mt-2 text-2xl font-bold">The research behind the SOC workflow</h2><p class="mt-3 text-sm leading-6 text-slate-400">The platform demonstrates a multi-agent SOC model in which specialist agents divide triage, threat intelligence, investigation, response and reporting while keeping human governance in the loop.</p><div class="mt-5 flex flex-wrap gap-2"><a href="https://jieee.a2zjournals.com/index.php/ieee/article/view/224" target="_blank" rel="noopener" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400">Read paper</a><a href="https://doi.org/10.54060/a2zjournals.jieee.224" target="_blank" rel="noopener" class="rounded-lg border border-slate-700 px-4 py-2 text-sm hover:bg-slate-800">Open DOI</a></div></div>
+    <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5"><div class="text-xs text-slate-500">Published research</div><div class="mt-2 text-sm font-semibold">Multi-Agent Artificial Intelligence Framework for Security Operations Center (SOC) Automation and Incident Response</div><div class="mt-3 grid grid-cols-2 gap-3 text-xs"><div><div class="text-slate-500">Journal</div><div class="mt-1">JIEEE</div></div><div><div class="text-slate-500">Issue</div><div class="mt-1">Vol. 7 No. 3</div></div><div><div class="text-slate-500">Published</div><div class="mt-1">September 2026</div></div><div><div class="text-slate-500">Pages</div><div class="mt-1">1–9</div></div></div></div>
+  </div>
+</section>
 <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-600">Synthetic security demonstration. Console access is protected by authentication.</footer>
 </main>
 
