@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: multi-agent-soc-api
+    runtime: docker
+    healthCheckPath: /ready
+    plan: free
+    envVars:
+      - key: SOC_DB_PATH
+        value: /data/soc_automation.db
+      - key: SOC_API_KEY
+        sync: false
+      - key: SOC_ANALYST_KEY
+        sync: false
+      - key: SOC_RESPONDER_KEY
+        sync: false
+      - key: SOC_ADMIN_KEY
+        sync: false
