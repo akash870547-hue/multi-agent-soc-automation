@@ -116,6 +116,12 @@ python experiments/evaluate.py
 
 The runner reports classification metrics for the current multi-agent pipeline and a simple keyword baseline, including accuracy, precision, recall, F1, and confusion-matrix counts. The dataset is intentionally small and synthetic; it is a development/research fixture, not a production benchmark.
 
+## Hosted deployment blueprint
+
+`render.yaml` provides a Docker-based deployment blueprint with a persistent SQLite disk and `/ready` health check. Set the role/API secrets in the hosting provider rather than committing them. After deployment, connect GitHub Pages with `?api=https://YOUR-API-HOST`.
+
+The repository provides deployment configuration, but actual hosting requires the owner to create the service and supply production secrets/billing credentials.
+
 ## Test
 
 ```bash
