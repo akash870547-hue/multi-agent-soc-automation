@@ -23,6 +23,7 @@ app.add_middleware(
 
 DB_PATH = os.getenv("SOC_DB_PATH", "soc_automation.db")
 API_KEY = os.getenv("SOC_API_KEY")
+ROLE_KEYS = {"analyst": os.getenv("SOC_ANALYST_KEY"), "responder": os.getenv("SOC_RESPONDER_KEY"), "admin": os.getenv("SOC_ADMIN_KEY")}
 
 
 def db():
@@ -129,9 +130,22 @@ def get_incident_or_404(incident_id: str) -> dict:
     return json.loads(row["payload"])
 
 
-def require_api_key(x_api_key: str | None):
-    if API_KEY and x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+def authenticate(x_api_key: str | None) -> tuple[str, str]:
+    if not (API_KEY or any(ROLE_KEYS.values())):
+        return "local", "admin"
+    if API_KEY and x_api_key == API_KEY:
+        return "api-client", "admin"
+    for role, key in ROLE_KEYS.items():
+        if key and x_api_key == key:
+            return role, role
+    raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
+def require_role(x_api_key: str | None, allowed_roles: set[str]) -> tuple[str, str]:
+    actor, role = authenticate(x_api_key)
+    if role not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Insufficient role permissions")
+    return actor, role
 
 
 @app.get("/health")
@@ -168,13 +182,13 @@ def approve_incident(
     x_api_key: str | None = Header(default=None),
     x_actor: str | None = Header(default=None),
 ):
-    require_api_key(x_api_key)
+    actor, _ = require_role(x_api_key, {"admin", "responder"})
     incident = get_incident_or_404(incident_id)
     incident["governance"]["approved"] = True
     incident["governance"]["approved_at"] = iso_now()
     incident["approved_actions"] = incident["recommendations"]
     save_incident(incident)
-    audit("approve_incident", incident_id, x_actor or "api-client")
+    audit("approve_incident", incident_id, x_actor or actor)
     return incident
 
 
@@ -184,14 +198,14 @@ def acknowledge_incident(
     x_api_key: str | None = Header(default=None),
     x_actor: str | None = Header(default=None),
 ):
-    require_api_key(x_api_key)
+    actor, _ = require_role(x_api_key, {"admin", "responder", "analyst"})
     incident = get_incident_or_404(incident_id)
     if not incident.get("acknowledged_at"):
         incident["acknowledged_at"] = iso_now()
     if incident["status"] == "open":
         incident["status"] = "investigating"
     save_incident(incident)
-    audit("acknowledge_incident", incident_id, x_actor or "api-client")
+    audit("acknowledge_incident", incident_id, x_actor or actor)
     return incident
 
 
@@ -201,14 +215,14 @@ def resolve_incident(
     x_api_key: str | None = Header(default=None),
     x_actor: str | None = Header(default=None),
 ):
-    require_api_key(x_api_key)
+    actor, _ = require_role(x_api_key, {"admin", "responder"})
     incident = get_incident_or_404(incident_id)
     if not incident.get("acknowledged_at"):
         incident["acknowledged_at"] = iso_now()
     incident["resolved_at"] = iso_now()
     incident["status"] = "resolved"
     save_incident(incident)
-    audit("resolve_incident", incident_id, x_actor or "api-client")
+    audit("resolve_incident", incident_id, x_actor or actor)
     return incident
 
 
@@ -218,7 +232,7 @@ def ingest_event(
     x_api_key: str | None = Header(default=None),
     x_actor: str | None = Header(default=None),
 ):
-    require_api_key(x_api_key)
+    actor, _ = require_role(x_api_key, {"admin", "responder", "analyst"})
     prior_events = load_events()
     save_event(event)
     result = process_event(event)
@@ -232,7 +246,7 @@ def ingest_event(
             )
         save_incident(result)
 
-    audit("ingest_event", event.event_id, x_actor or "api-client")
+    audit("ingest_event", event.event_id, x_actor or actor)
     return {"detected": result is not None, "incident": result}
 
 
@@ -242,7 +256,8 @@ def threat_intel(indicator: str):
 
 
 @app.get("/api/audit-logs")
-def audit_logs(limit: int = 50):
+def audit_logs(limit: int = 50, x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin"})
     limit = max(1, min(limit, 200))
     with db() as connection:
         rows = connection.execute(
