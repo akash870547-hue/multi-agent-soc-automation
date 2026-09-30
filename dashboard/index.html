@@ -25,7 +25,11 @@
 <div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Agent Status</h2><div id="agents" class="mt-5 space-y-4"></div></div>
 </section>
 <section class="mt-6 grid gap-6 lg:grid-cols-2">
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Detail</h2><pre id="detail" class="mt-4 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-300">Select an incident.</pre></div>
+<div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Incident Detail</h2><pre id="detail" class="mt-4 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-300">Select an incident.</pre>
+<div id="actions" class="mt-3 hidden gap-2">
+<button id="approveBtn" onclick="approveSelected()" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Approve Response</button>
+<span id="governance" class="rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-400"></span>
+</div></div>
 <div class="rounded-xl border border-slate-800 bg-slate-900 p-6"><h2 class="text-lg font-semibold">Event Ingestion</h2>
 <div class="mt-4 space-y-3"><input id="message" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="SQL injection detected from 198.51.100.10"><div class="grid gap-3 sm:grid-cols-2"><input id="sourceIp" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="198.51.100.10"><input id="destIp" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" value="10.0.0.20"></div><button onclick="ingest()" class="w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm font-semibold hover:bg-slate-700">Ingest Event</button><p id="notice" class="text-xs text-slate-500"></p></div></div>
 </section>
@@ -49,7 +53,29 @@ function renderIncidents(list){
  document.getElementById("m-investigating").textContent=list.filter(x=>x.status==="investigating").length;
  document.getElementById("m-resolved").textContent=list.filter(x=>x.status==="resolved").length;
 }
-function showIncident(id){const x=localIncidents.find(i=>i.incident_id===id);if(x)document.getElementById("detail").textContent=JSON.stringify(x,null,2)}
+let selectedIncidentId=null;
+function showIncident(id){
+ const x=localIncidents.find(i=>i.incident_id===id); if(!x)return;
+ selectedIncidentId=id;
+ document.getElementById("detail").textContent=JSON.stringify(x,null,2);
+ const actions=document.getElementById("actions");
+ const approved=x.governance?.approved===true;
+ actions.classList.remove("hidden"); actions.classList.add("flex");
+ document.getElementById("approveBtn").disabled=approved;
+ document.getElementById("approveBtn").textContent=approved?"Response Approved":"Approve Response";
+ document.getElementById("governance").textContent=approved?"Human approval recorded":"Human approval required before response";
+}
+async function approveSelected(){
+ if(!selectedIncidentId||!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API to record approval.";return;}
+ try{
+  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/incidents/"+encodeURIComponent(selectedIncidentId)+"/approve",{method:"POST"});
+  if(!r.ok)throw new Error("API "+r.status);
+  const updated=await r.json();
+  localIncidents=localIncidents.map(x=>x.incident_id===updated.incident_id?updated:x);
+  showIncident(updated.incident_id); renderIncidents(localIncidents);
+  document.getElementById("notice").textContent="Human approval recorded by the backend.";
+ }catch(e){document.getElementById("notice").textContent="Approval failed: "+e.message;}
+}
 function localProcess(message,sourceIp,destIp){
  let severity=null,reason="",technique=null,name=null;
  const m=message.toLowerCase();
@@ -68,6 +94,22 @@ async function ingest(){
  const incident=localProcess(message,sourceIp,destIp);if(incident)localIncidents.push(incident);document.getElementById("notice").textContent=incident?"Event detected and triaged in demo engine.":"No matching detection rule.";renderIncidents(localIncidents);if(incident)showIncident(incident.incident_id);
 }
 function simulate(){document.getElementById("message").value="SQL injection detected from 203.0.113.50";document.getElementById("sourceIp").value="203.0.113.50";ingest()}
-renderAgents();renderIncidents([]);
+async function loadLive(){
+ if(!API_BASE){renderAgents();renderIncidents([]);return;}
+ try{
+  const base=API_BASE.replace(/\/$/,"");
+  const [a,i,m]=await Promise.all([fetch(base+"/api/agents"),fetch(base+"/api/incidents"),fetch(base+"/api/metrics")]);
+  if(!a.ok||!i.ok||!m.ok)throw new Error("API unavailable");
+  const agentsData=await a.json(), incidentsData=await i.json(), metricsData=await m.json();
+  localIncidents=incidentsData; renderAgents(agentsData.agents); renderIncidents(localIncidents);
+  document.getElementById("m-active").textContent=metricsData.active_alerts;
+  document.getElementById("m-critical").textContent=metricsData.critical;
+  document.getElementById("m-investigating").textContent=metricsData.investigating;
+  document.getElementById("m-resolved").textContent=metricsData.resolved;
+  document.getElementById("mode").textContent="LIVE API";
+  document.getElementById("notice").textContent="Connected to FastAPI SOC backend.";
+ }catch(e){renderAgents();renderIncidents([]);document.getElementById("notice").textContent="API unavailable, demo mode active.";}
+}
+loadLive();
 </script>
 </body></html>
