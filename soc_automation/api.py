@@ -15,7 +15,7 @@ import ssl
 from urllib.parse import urlparse
 from collections import defaultdict, deque
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 
@@ -24,7 +24,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.6.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.7.0")
 
 _cors_origins = [
     origin.strip()
@@ -49,6 +49,8 @@ ROLE_KEYS = {
 RATE_LIMIT = int(os.getenv("SOC_RATE_LIMIT", "60"))
 RATE_WINDOW = int(os.getenv("SOC_RATE_WINDOW_SECONDS", "60"))
 MONITOR_INTERVAL = int(os.getenv("SOC_MONITOR_INTERVAL_SECONDS", "300"))
+PUBLIC_TEST_RATE_LIMIT = int(os.getenv("SOC_PUBLIC_TEST_RATE_LIMIT", "10"))
+PUBLIC_TEST_RATE_WINDOW = int(os.getenv("SOC_PUBLIC_TEST_RATE_WINDOW_SECONDS", "60"))
 _request_log: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -166,12 +168,14 @@ def get_incident_or_404(incident_id: str) -> dict:
     return json.loads(row["payload"])
 
 
-def rate_limit(client_key: str):
+def rate_limit(client_key: str, limit: int | None = None, window: int | None = None):
     now = time.time()
+    effective_limit = limit if limit is not None else RATE_LIMIT
+    effective_window = window if window is not None else RATE_WINDOW
     bucket = _request_log[client_key]
-    while bucket and now - bucket[0] > RATE_WINDOW:
+    while bucket and now - bucket[0] > effective_window:
         bucket.popleft()
-    if len(bucket) >= RATE_LIMIT:
+    if len(bucket) >= effective_limit:
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
     bucket.append(now)
 
@@ -439,7 +443,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.6.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.7.0"}
 
 
 @app.get("/ready")
@@ -592,6 +596,94 @@ def audit_logs(limit: int = 50, x_api_key: str | None = Header(default=None)):
     with db() as connection:
         rows = connection.execute("SELECT action, resource_id, actor, created_at FROM audit_logs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     return [dict(row) for row in rows]
+
+
+def inspect_public_url(url: str) -> dict:
+    """One-time, non-persistent website security inspection for the public test UI."""
+    safe_public_url(url)
+    started = time.perf_counter()
+    status = "up"
+    status_code = None
+    error = None
+    final_url = url
+    redirect_tracker = RedirectTracker()
+    headers_snapshot = {}
+    content_hash = None
+
+    try:
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Multi-Agent-SOC-Public-Test/1.0"},
+        )
+        opener = urllib.request.build_opener(redirect_tracker)
+        with opener.open(request, timeout=10) as response:
+            status_code = response.status
+            final_url = response.geturl()
+            raw_body = response.read(1024 * 1024)
+            content_hash = hashlib.sha256(raw_body).hexdigest()
+            headers_snapshot = {str(k).lower(): str(v) for k, v in response.headers.items()}
+            if status_code >= 500:
+                status = "down"
+            elif status_code >= 400:
+                status = "degraded"
+    except urllib.error.HTTPError as exc:
+        status_code = exc.code
+        final_url = exc.geturl() or url
+        headers_snapshot = {str(k).lower(): str(v) for k, v in exc.headers.items()}
+        error = str(exc)
+        status = "degraded" if exc.code < 500 else "down"
+    except Exception as exc:
+        status = "down"
+        error = str(exc)
+
+    hostname = urlparse(url).hostname
+    try:
+        tls_info = get_tls_info(hostname) if hostname else {"valid": False, "error": "missing hostname"}
+    except Exception as exc:
+        tls_info = {"valid": False, "error": str(exc)}
+
+    missing_headers = [
+        label for header, label in REQUIRED_SECURITY_HEADERS.items()
+        if header not in headers_snapshot
+    ]
+    findings = [f"Missing security header: {item}" for item in missing_headers]
+    if headers_snapshot.get("x-frame-options", "").upper() == "ALLOWALL":
+        findings.append("X-Frame-Options allows framing")
+    if "strict-transport-security" in headers_snapshot and "max-age=" not in headers_snapshot["strict-transport-security"].lower():
+        findings.append("HSTS has no max-age directive")
+    if any((item.get("to") or "").lower().startswith("http://") for item in redirect_tracker.chain):
+        findings.append("Redirect chain contains an HTTP URL")
+    if final_url.lower().startswith("http://"):
+        findings.append("Final destination is HTTP")
+    if not tls_info.get("valid"):
+        findings.append("TLS certificate validation failed")
+    elif tls_info.get("days_to_expiry") is not None and tls_info["days_to_expiry"] <= 30:
+        findings.append(f"TLS certificate expires in {tls_info['days_to_expiry']} day(s)")
+    if error:
+        findings.append(f"Availability error: {error}")
+
+    return {
+        "url": url,
+        "status": status,
+        "status_code": status_code,
+        "response_ms": round((time.perf_counter() - started) * 1000, 2),
+        "checked_at": iso_now(),
+        "final_url": final_url,
+        "tls": tls_info,
+        "security_headers": headers_snapshot,
+        "missing_security_headers": missing_headers,
+        "redirect_chain": redirect_tracker.chain,
+        "content_hash": content_hash,
+        "findings": findings[:20],
+    }
+
+
+@app.post("/api/public/security-test")
+def public_security_test(target: MonitorTarget, request: Request):
+    # Public test is intentionally one-time and non-persistent.
+    client_host = request.client.host if request.client else "anonymous"
+    rate_limit(f"public-test:{client_host}", PUBLIC_TEST_RATE_LIMIT, PUBLIC_TEST_RATE_WINDOW)
+    return inspect_public_url(str(target.url))
 
 
 @app.get("/api/monitor/targets")
