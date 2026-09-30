@@ -11,6 +11,12 @@ services:
     envVars:
       - key: SOC_DB_PATH
         value: /data/soc_automation.db
+      - key: SOC_CORS_ORIGINS
+        value: https://akash870547-hue.github.io
+      - key: SOC_RATE_LIMIT
+        value: "60"
+      - key: SOC_RATE_WINDOW_SECONDS
+        value: "60"
       - key: SOC_API_KEY
         sync: false
       - key: SOC_ANALYST_KEY
@@ -19,7 +25,3 @@ services:
         sync: false
       - key: SOC_ADMIN_KEY
         sync: false
-      - key: SOC_RATE_LIMIT
-        value: "60"
-      - key: SOC_RATE_WINDOW_SECONDS
-        value: "60"
