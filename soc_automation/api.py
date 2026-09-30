@@ -236,9 +236,9 @@ class RedirectTracker(urllib.request.HTTPRedirectHandler):
     def __init__(self):
         self.chain = []
 
-    def _record(self, req, fp, code, msg, newurl):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         self.chain.append({"from": req.full_url, "to": newurl, "status_code": code})
-        return super()._redirect_request(req, fp, code, msg, newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
     def http_error_301(self, req, fp, code, msg, headers):
         return self._record(req, fp, code, msg, headers.get("Location"))
@@ -599,7 +599,28 @@ def monitor_targets(x_api_key: str | None = Header(default=None)):
     require_role(x_api_key, {"admin", "responder", "analyst"})
     with db() as connection:
         rows = connection.execute("SELECT * FROM monitor_targets ORDER BY name, url").fetchall()
-    return [dict(row) for row in rows]
+    output = []
+    for row in rows:
+        item = dict(row)
+        for raw_key, out_key in [
+            ("security_headers", "security_headers"),
+            ("tls_info", "tls"),
+            ("redirect_chain", "redirect_chain"),
+            ("findings", "findings"),
+        ]:
+            raw = item.get(raw_key)
+            try:
+                item[out_key] = json.loads(raw) if raw else ([] if raw_key in {"redirect_chain", "findings"} else {})
+            except (TypeError, json.JSONDecodeError):
+                item[out_key] = raw
+        headers = item.get("security_headers") or {}
+        item["missing_security_headers"] = [
+            label for header, label in REQUIRED_SECURITY_HEADERS.items()
+            if header not in headers
+        ]
+        item.pop("security_headers", None) if "security_headers" in item and item["security_headers"] == item.get("security_headers") else None
+        output.append(item)
+    return output
 
 
 @app.post("/api/monitor/targets")
