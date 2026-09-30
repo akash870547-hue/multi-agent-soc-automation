@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent SOC | Live Demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+<header class="border-b border-slate-800 bg-slate-950/95">
+  <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+    <div><div class="text-xl font-bold">Multi-Agent SOC</div><div class="text-xs text-slate-400">AI-assisted Security Operations Center</div></div>
+    <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">SYSTEM ONLINE</span>
+  </div>
+</header>
+<main class="mx-auto max-w-7xl px-6 py-8">
+  <section class="mb-8">
+    <h1 class="text-3xl font-bold">Security Operations Dashboard</h1>
+    <p class="mt-2 max-w-3xl text-slate-400">Research implementation of a multi-agent framework for SOC automation and incident response.</p>
+  </section>
+  <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Active Alerts</div><div class="mt-2 text-3xl font-bold">07</div></div>
+    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Critical</div><div class="mt-2 text-3xl font-bold text-red-400">02</div></div>
+    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Investigating</div><div class="mt-2 text-3xl font-bold text-amber-400">03</div></div>
+    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5"><div class="text-sm text-slate-400">Resolved</div><div class="mt-2 text-3xl font-bold text-emerald-400">21</div></div>
+  </section>
+  <section class="mt-8 grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-6">
+      <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Recent Incidents</h2><span class="text-xs text-slate-500">Demo telemetry</span></div>
+      <div class="mt-5 space-y-3">
+        <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4"><div><div class="font-medium">SQL Injection Attempt</div><div class="text-xs text-slate-500">203.0.113.50 → Web Server</div></div><span class="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">HIGH</span></div>
+        <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4"><div><div class="font-medium">Suspicious Authentication Failures</div><div class="text-xs text-slate-500">198.51.100.24 → VPN Gateway</div></div><span class="rounded-full bg-amber-500/10 px-3 py-1 text-xs text-amber-400">MEDIUM</span></div>
+        <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 p-4"><div><div class="font-medium">Potential Malware Activity</div><div class="text-xs text-slate-500">Endpoint telemetry</div></div><span class="rounded-full bg-red-500/10 px-3 py-1 text-xs text-red-400">CRITICAL</span></div>
+      </div>
+    </div>
+    <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+      <h2 class="text-lg font-semibold">Agent Status</h2>
+      <div class="mt-5 space-y-4">
+        <div class="flex justify-between"><span>Triage Agent</span><span class="text-emerald-400">● Ready</span></div>
+        <div class="flex justify-between"><span>Threat Intel</span><span class="text-amber-400">● Building</span></div>
+        <div class="flex justify-between"><span>Investigation</span><span class="text-emerald-400">● Ready</span></div>
+        <div class="flex justify-between"><span>Response</span><span class="emerald-400 text-emerald-400">● Approval</span></div>
+        <div class="flex justify-between"><span>Reporting</span><span class="text-emerald-400">● Ready</span></div>
+      </div>
+    </div>
+  </section>
+  <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
+    <h2 class="text-lg font-semibold">Incident Pipeline</h2>
+    <div class="mt-5 grid gap-3 text-center sm:grid-cols-5">
+      <div class="rounded-lg bg-slate-950 p-4"><b>01</b><div class="mt-1 text-xs text-slate-400">Ingest</div></div>
+      <div class="rounded-lg bg-slate-950 p-4"><b>02</b><div class="mt-1 text-xs text-slate-400">Detect</div></div>
+      <div class="rounded-lg bg-slate-950 p-4"><b>03</b><div class="mt-1 text-xs text-slate-400">Triage</div></div>
+      <div class="rounded-lg bg-slate-950 p-4"><b>04</b><div class="mt-1 text-xs text-slate-400">Investigate</div></div>
+      <div class="rounded-lg bg-slate-950 p-4"><b>05</b><div class="mt-1 text-xs text-slate-400">Human-approved Response</div></div>
+    </div>
+  </section>
+  <footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-500">
+    Prototype dashboard • Research implementation • <a class="text-sky-400 hover:underline" href="https://github.com/akash870547-hue/multi-agent-soc-automation">View source on GitHub</a>
+  </footer>
+</main>
+</body>
+</html>
