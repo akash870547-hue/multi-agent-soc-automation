@@ -13,3 +13,19 @@ def test_sql_injection_creates_incident():
 def test_benign_event_creates_no_alert():
     event = SecurityEvent(event_id="EVT-TEST-002", source="test", event_type="info", message="Normal application startup completed")
     assert process_event(event) is None
+
+
+
+def test_threat_intel_extracts_ioc_and_mitre_mapping():
+    event = SecurityEvent(
+        event_id="EVT-TEST-003",
+        source="web-gateway",
+        event_type="web_attack",
+        source_ip="203.0.113.50",
+        message="SQL injection detected from 198.51.100.10",
+    )
+    result = process_event(event)
+    assert result is not None
+    assert "198.51.100.10" in result["iocs"]["ipv4"]
+    assert "203.0.113.50" in result["iocs"]["ipv4"]
+    assert result["mitre"]["technique_id"] == "T1190"
