@@ -62,7 +62,20 @@ function updateAuthStatus(ok=null){
  el.textContent=!key?"Not configured":ok===true?"Authenticated":"Key saved";
  el.className="rounded-full border px-3 py-1 text-xs "+(!key?"border-slate-700 text-slate-400":ok===true?"border-emerald-500/30 bg-emerald-500/10 text-emerald-400":"border-amber-500/30 bg-amber-500/10 text-amber-400");
 }
-async function connectApi(){\n const input=document.getElementById("apiKey");\n const key=input.value.trim();\n if(!key){updateAuthStatus(false);document.getElementById("notice").textContent="Enter the bootstrap/admin API key first.";return;}\n localStorage.setItem("soc_api_key",key);\n try{\n  const r=await fetch(API_BASE+"/api/me",{headers:{...API_HEADERS()}});\n  const body=await r.json().catch(()=>({}));\n  if(!r.ok)throw new Error(body.detail||("Authentication failed (HTTP "+r.status+")"));\n  updateAuthStatus(true);\n  applyPermissions(body);\n  document.getElementById("notice").textContent="Connected as "+body.role+".";\n  loadLive();\n }catch(e){updateAuthStatus(false);document.getElementById("notice").textContent=e.message;}}
+async function connectApi(){
+ const input=document.getElementById("apiKey");
+ const key=input.value.trim();
+ if(!key){updateAuthStatus(false);document.getElementById("notice").textContent="Enter the bootstrap/admin API key first.";return;}
+ localStorage.setItem("soc_api_key",key);
+ try{
+  const r=await fetch(API_BASE+"/api/me",{headers:{...API_HEADERS()}});
+  const body=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(body.detail||("Authentication failed (HTTP "+r.status+")"));
+  updateAuthStatus(true);
+  applyPermissions(body);
+  document.getElementById("notice").textContent="Connected as "+body.role+".";
+  loadLive();
+ }catch(e){updateAuthStatus(false);document.getElementById("notice").textContent=e.message;}}
 function applyPermissions(d){document.getElementById("roleBadge").textContent=(d.role||"unknown").toUpperCase();const p=d.permissions||{};for(const [id,v] of [["permIngest",p.ingest],["permAck",p.acknowledge],["permApprove",p.approve],["permResolve",p.resolve],["permMonitor",p.website_monitor],["permAudit",p.audit_logs]])document.getElementById(id).textContent=v?"YES":"NO";if(p.audit_logs){document.getElementById("adminConsole").classList.remove("hidden");document.getElementById("keyManager").classList.remove("hidden");loadAuditLogs();loadKeys()}}
 function clearApiKey(){localStorage.removeItem("soc_api_key");document.getElementById("apiKey").value="";updateAuthStatus(false);document.getElementById("notice").textContent="API key cleared from this browser."}
 let localIncidents=[];
@@ -130,7 +143,8 @@ function localProcess(message,sourceIp,destIp){
 }
 document.getElementById("apiKey").value=localStorage.getItem("soc_api_key") || "";
 document.getElementById("apiKey").addEventListener("change",e=>{localStorage.setItem("soc_api_key",e.target.value.trim());updateAuthStatus(false);});
-updateAuthStatus();\nasync function ingest(){
+updateAuthStatus();
+async function ingest(){
  const message=document.getElementById("message").value,sourceIp=document.getElementById("sourceIp").value,destIp=document.getElementById("destIp").value;
  const event={event_id:"EVT-"+Date.now(),source:"dashboard",event_type:"security_event",source_ip:sourceIp,destination_ip:destIp,message};
  if(!API_BASE){document.getElementById("notice").textContent="Production API is not configured.";return;}
@@ -208,7 +222,9 @@ async function loadLive(){
  if(!API_BASE){renderAgents();renderIncidents([]);return;}
  try{
   const base=API_BASE.replace(/\/$/,"");
-  const headers={...API_HEADERS()};\n  if(!headers["X-API-Key"])throw new Error("Authentication required");\n  const [a,i,m]=await Promise.all([fetch(base+"/api/agents",{headers}),fetch(base+"/api/incidents",{headers}),fetch(base+"/api/metrics",{headers})]);
+  const headers={...API_HEADERS()};
+  if(!headers["X-API-Key"])throw new Error("Authentication required");
+  const [a,i,m]=await Promise.all([fetch(base+"/api/agents",{headers}),fetch(base+"/api/incidents",{headers}),fetch(base+"/api/metrics",{headers})]);
   if(a.status===401||i.status===401||m.status===401){updateAuthStatus(false);throw new Error("Authentication required");}
   if(!a.ok||!i.ok||!m.ok)throw new Error("API unavailable");
   updateAuthStatus(true);
