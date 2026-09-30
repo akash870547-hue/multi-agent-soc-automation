@@ -90,10 +90,12 @@ Useful endpoints:
 - `GET /api/threat-intel/{indicator}` - optional IOC enrichment
 - `GET /api/audit-logs` - recent auditable state-changing actions
 - `GET /api/monitor/targets` - monitored websites with security findings
-- `POST /api/monitor/targets` - add a public HTTPS monitoring target
-- `POST /api/monitor/targets/{target_id}/check` - trigger an immediate check
-- `GET /api/monitor/targets/{target_id}/history` - recent check history
-- `DELETE /api/monitor/targets/{target_id}` - remove a monitoring target
+- `POST /api/public/security-test` - one-time public HTTPS security test; does not persist a target
+- `GET /api/monitor/targets` - admin/responder/analyst view of persisted monitoring targets
+- `POST /api/monitor/targets` - admin-only add a continuous monitoring target
+- `POST /api/monitor/targets/{target_id}/check` - trigger an immediate admin-monitoring check
+- `GET /api/monitor/targets/{target_id}/history` - recent admin-monitoring check history
+- `DELETE /api/monitor/targets/{target_id}` - admin-only remove a monitoring target
 
 ### Optional LLM reasoning
 
@@ -122,7 +124,7 @@ The dashboard exposes role-aware controls through `GET /api/me`:
 - **Responder:** analyst permissions plus approve and resolve incidents.
 - **Admin:** responder permissions plus website-target administration and audit logs.
 
-Website security monitoring is built into the backend. An admin can register a public HTTPS target with `POST /api/monitor/targets`. Each check records availability, HTTP status, latency, TLS certificate validity/expiry, response security headers, redirect chain, a bounded content SHA-256 fingerprint, findings, and check history. The monitor generates SOC incidents for availability state changes, newly removed security headers, TLS certificates entering the 30-day expiry window, redirect-chain changes, and content changes. Private/local network targets are rejected to reduce SSRF risk. Admins can remove targets, while analysts/responder roles can inspect and trigger checks. The default polling interval is 5 minutes and can be changed with `SOC_MONITOR_INTERVAL_SECONDS`.
+Website security monitoring has two separate surfaces. The **Public Website Security Test** uses `POST /api/public/security-test` for a single, read-only HTTPS inspection. It does not save a target, start background polling, or create SOC incidents. It is rate-limited separately and rejects private/local targets. The **Admin Continuous Website Monitoring** surface uses `POST /api/monitor/targets` and is admin-only for creating/removing persistent targets. Those targets are checked every 5 minutes by default and record availability, HTTP status, latency, TLS certificate validity/expiry, response security headers, redirect chain, a bounded content SHA-256 fingerprint, findings, and check history. Admin monitoring can generate SOC incidents for availability state changes, newly removed security headers, TLS certificates entering the 30-day expiry window, redirect-chain changes, and content changes. Analysts/responders can inspect existing targets and trigger checks, but cannot create or delete monitoring targets.
 
 ## Experiments
 
