@@ -3,55 +3,106 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Multi-Agent SOC | Public Security Lab</title>
+<title>Multi-Agent SOC | Interactive Demo</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .demo-pulse{animation:pulse 1.4s ease-in-out infinite}
+  .step-enter{animation:enter .35s ease-out}
+  @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes enter{from{opacity:.2;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
-<header class="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+<header class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
   <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
     <div>
       <div class="text-xl font-bold">Multi-Agent SOC</div>
-      <div class="text-xs text-slate-400">Public Security Lab</div>
+      <div class="text-xs text-slate-400">Interactive Product Demonstration</div>
     </div>
     <div class="flex items-center gap-2">
-      <span class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-400">PUBLIC</span>
+      <span class="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-400">PUBLIC DEMO</span>
       <span id="visitorState" class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">● ACTIVE</span>
     </div>
   </div>
 </header>
 
 <main class="mx-auto max-w-7xl px-6 py-8">
+
 <section class="mb-8">
   <div class="max-w-4xl">
-    <h1 class="text-3xl font-bold">Security Testing Playground</h1>
-    <p class="mt-2 text-slate-400">Run safe security-event simulations, inspect a public HTTPS target, and browse the current MITRE ATT&CK Enterprise technique library. No real exploitation is performed here.</p>
+    <div class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-400">See the complete workflow</div>
+    <h1 class="mt-2 text-3xl font-bold sm:text-4xl">Watch a Security Event Move Through the SOC</h1>
+    <p class="mt-3 text-slate-400">Choose a simulated attack and run the complete project workflow. Every step is visualized from event ingestion to detection, multi-agent investigation, MITRE mapping, reasoning, human approval, response and reporting.</p>
   </div>
-  <div class="mt-4 rounded-lg border border-sky-500/20 bg-sky-500/5 p-4 text-xs text-slate-400">Public activity is monitored for product analytics and security operations. Meaningful actions, test runs, page visits, approximate activity time, client IP, browser user-agent, and selected test details are visible only to authorized SOC administrators.</div>
+  <div class="mt-5 grid gap-3 sm:grid-cols-4">
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4"><div class="text-xs text-slate-500">Mode</div><div class="mt-1 font-semibold text-emerald-400">Simulation</div></div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4"><div class="text-xs text-slate-500">Production data</div><div class="mt-1 font-semibold">Never touched</div></div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4"><div class="text-xs text-slate-500">Response actions</div><div class="mt-1 font-semibold">Human approved</div></div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4"><div class="text-xs text-slate-500">Purpose</div><div class="mt-1 font-semibold">Product demo</div></div>
+  </div>
 </section>
 
-<section class="grid gap-6 lg:grid-cols-2">
-  <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+<section class="rounded-2xl border border-sky-500/20 bg-slate-900 p-6 shadow-2xl shadow-sky-950/20">
+  <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">1. Choose a scenario</div>
+      <h2 class="mt-1 text-2xl font-bold">Run Full SOC Workflow</h2>
+      <p class="mt-1 text-xs text-slate-500">The entire flow below is generated locally in the browser. Public telemetry records only that the demo was run.</p>
+    </div>
+    <div class="flex flex-col gap-2 sm:flex-row">
+      <select id="attackType" onchange="logSelectedAttack()" class="min-w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm"></select>
+      <button id="runDemoBtn" onclick="runFullDemo()" class="rounded-lg bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">▶ Run Full Demo</button>
+      <button id="nextStepBtn" onclick="advanceDemo()" disabled class="rounded-lg border border-slate-700 px-5 py-3 text-sm font-semibold hover:bg-slate-800">Next Step</button>
+    </div>
+  </div>
+
+  <div class="mt-6 overflow-x-auto pb-2">
+    <div id="flowStrip" class="flex min-w-max items-center gap-2 text-xs"></div>
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+    <div class="rounded-xl border border-slate-800 bg-slate-950 p-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Current stage</div>
+          <div id="currentStageTitle" class="mt-1 text-xl font-semibold">Ready to start</div>
+        </div>
+        <span id="stageBadge" class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-500">IDLE</span>
+      </div>
+      <p id="currentStageExplain" class="mt-3 text-sm leading-6 text-slate-400">Click Run Full Demo. The page will walk through the same logical stages as the project architecture.</p>
+      <div id="stageBody" class="mt-5"></div>
+    </div>
+
+    <div class="rounded-xl border border-slate-800 bg-slate-950 p-5">
+      <div class="flex items-center justify-between"><div class="text-xs uppercase tracking-wide text-slate-500">SOC event stream</div><span id="streamState" class="text-xs text-slate-500">Waiting</span></div>
+      <div id="eventStream" class="mt-4 h-[31rem] overflow-auto space-y-2 font-mono text-xs"></div>
+    </div>
+  </div>
+</section>
+
+<section class="mt-6 grid gap-6 lg:grid-cols-3">
+  <div class="rounded-xl border border-slate-800 bg-slate-900 p-6 lg:col-span-2">
     <div class="flex items-center justify-between">
-      <div><h2 class="text-lg font-semibold">MITRE Attack Simulator</h2><p class="mt-1 text-xs text-slate-500">Synthetic event only</p></div>
-      <span id="mitreScenarioCount" class="text-xs text-slate-500">24 scenarios</span>
+      <div><h2 class="text-lg font-semibold">Workflow Explained</h2><p class="mt-1 text-xs text-slate-500">What each stage means in a real SOC pipeline</p></div>
+      <span id="explainProgress" class="text-xs text-slate-500">0 / 9</span>
     </div>
-    <div class="mt-4 space-y-3">
-      <select id="attackType" onchange="logSelectedAttack()" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm"></select>
-      <button onclick="runAttackTest()" class="w-full rounded-lg bg-sky-500 p-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Run Safe Test</button>
-    </div>
-    <div id="attackResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
+    <div id="explainCards" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
   </div>
 
   <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-    <div class="flex items-center justify-between">
-      <div><h2 class="text-lg font-semibold">Public Web Security Test</h2><p class="mt-1 text-xs text-slate-500">One-time HTTPS inspection, no target persistence</p></div>
-      <span class="text-xs text-slate-500">LIVE CHECK</span>
+    <h2 class="text-lg font-semibold">Demo Output</h2>
+    <div class="mt-4 space-y-2 text-sm">
+      <div class="flex justify-between"><span class="text-slate-500">Incident</span><span id="outIncident">Not created</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Severity</span><span id="outSeverity">N/A</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">MITRE</span><span id="outMitre">N/A</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Priority</span><span id="outPriority">N/A</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Approval</span><span id="outApproval">Pending</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Response</span><span id="outResponse">Not executed</span></div>
     </div>
-    <div class="mt-4 space-y-3">
-      <input id="webTarget" class="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com" value="https://example.com">
-      <button onclick="runWebTest()" class="w-full rounded-lg bg-emerald-500 p-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Run HTTPS Test</button>
+    <div class="mt-5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+      <div class="text-xs uppercase tracking-wide text-emerald-400">Human-in-the-loop</div>
+      <p class="mt-2 text-xs leading-5 text-slate-400">The demo intentionally pauses at the governance stage. The Response Agent can recommend an action, but the simulated response is only marked approved after the human-approval stage.</p>
     </div>
-    <div id="webResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
   </div>
 </section>
 
@@ -59,7 +110,7 @@
   <div class="flex items-center justify-between gap-4">
     <div>
       <h2 class="text-lg font-semibold">MITRE ATT&CK Enterprise Library</h2>
-      <p class="mt-1 text-xs text-slate-500">Loaded from the official MITRE ATT&CK Enterprise v19.2 dataset.</p>
+      <p class="mt-1 text-xs text-slate-500">Use the library as an interactive reference and launch any technique as a safe synthetic simulation.</p>
     </div>
     <a href="https://attack.mitre.org/techniques/" target="_blank" rel="noopener" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Open MITRE ATT&CK</a>
   </div>
@@ -85,16 +136,15 @@
 </section>
 
 <section class="mt-6 rounded-xl border border-slate-800 bg-slate-900 p-6">
-  <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Latest Public Test Result</h2><span id="demoStatus" class="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">No test run</span></div>
-  <div class="mt-4 grid gap-3 sm:grid-cols-4">
-    <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Severity</div><div id="demoSeverity" class="mt-1 font-semibold">N/A</div></div>
-    <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">MITRE</div><div id="demoMitre" class="mt-1 font-semibold">N/A</div></div>
-    <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Detection</div><div id="demoDetection" class="mt-1 font-semibold">N/A</div></div>
-    <div class="rounded-lg bg-slate-950 p-4"><div class="text-xs text-slate-500">Response</div><div id="demoResponse" class="mt-1 font-semibold">Human approval</div></div>
+  <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Optional Live Web Check</h2><span class="text-xs text-slate-500">Separate from the workflow demo</span></div>
+  <div class="mt-3 grid gap-3 lg:grid-cols-[1fr_auto]">
+    <input id="webTarget" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com" value="https://example.com">
+    <button onclick="runWebTest()" class="rounded-lg bg-emerald-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Run HTTPS Check</button>
   </div>
+  <div id="webResult" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
 </section>
 
-<footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-600">Public demonstration only • Production SOC data and administrative controls are isolated behind authenticated access.</footer>
+<footer class="mt-8 border-t border-slate-800 pt-5 text-sm text-slate-600">Public demonstration only. Production SOC incidents, credentials, audit logs and customer monitoring remain behind authenticated access.</footer>
 </main>
 
 <script>
@@ -107,13 +157,57 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
 
 async function logPublic(action,detail={}){
   try{
-    await fetch(API_BASE+"/api/public/telemetry",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({visitor_id:VISITOR_ID,action,page:location.pathname+location.hash,detail})
-    });
+    await fetch(API_BASE+"/api/public/telemetry",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({visitor_id:VISITOR_ID,action,page:location.pathname+location.hash,detail})});
   }catch(e){}
 }
+
+const stages=[
+  {key:"ingest",label:"Event Ingestion",short:"Ingest",agent:"Event Pipeline",why:"The SOC receives a structured security event and preserves it as evidence.",build:(s)=>({
+    title:"A security event arrives",
+    text:"The simulated source sends a structured event into the SOC pipeline.",
+    html:"<div class='grid gap-2 sm:grid-cols-2'><div class='rounded-lg bg-slate-900 p-3'><div class='text-xs text-slate-500'>event_id</div><div class='mt-1 font-mono text-xs'>EVT-DEMO-"+Date.now().toString().slice(-8)+"</div></div><div class='rounded-lg bg-slate-900 p-3'><div class='text-xs text-slate-500'>source</div><div class='mt-1 font-mono text-xs'>demo-endpoint</div></div><div class='rounded-lg bg-slate-900 p-3'><div class='text-xs text-slate-500'>source_ip</div><div class='mt-1 font-mono text-xs'>203.0.113.50</div></div><div class='rounded-lg bg-slate-900 p-3'><div class='text-xs text-slate-500'>destination</div><div class='mt-1 font-mono text-xs'>10.10.20.25</div></div></div><div class='mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 font-mono text-xs break-all'>{"event_type":"security_event","message":""+esc(s.detection)+""}</div>"
+  })},
+  {key:"detect",label:"Detection Engine",short:"Detect",agent:"Rule Engine",why:"Detection rules evaluate the event and identify suspicious behavior.",build:(s)=>({
+    title:"Detection rule fires",
+    text:"A deterministic detection rule matches the synthetic event.",
+    html:"<div class='rounded-lg border border-amber-500/20 bg-amber-500/5 p-4'><div class='text-xs uppercase tracking-wide text-amber-300'>MATCH</div><div class='mt-2 font-semibold'>"+esc(s.detection)+"</div><div class='mt-2 text-xs text-slate-400'>Rule confidence: 0.93 • Detection source: deterministic rule engine</div></div>"
+  })},
+  {key:"correlate",label:"Correlation Engine",short:"Correlate",agent:"Correlation Engine",why:"Recent events are checked for shared security pivots such as IPs, usernames and destinations.",build:(s)=>({
+    title:"Related events are correlated",
+    text:"The correlation layer checks whether this event matches recent activity.",
+    html:"<div class='grid gap-3 sm:grid-cols-3'><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Source IP pivot</div><div class='mt-1 font-semibold'>203.0.113.50</div></div><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Destination pivot</div><div class='mt-1 font-semibold'>10.10.20.25</div></div><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Correlated events</div><div class='mt-1 font-semibold'>3 recent</div></div></div>"
+  })},
+  {key:"triage",label:"Triage Agent",short:"Triage",agent:"Triage Agent",why:"The first SOC agent converts the raw detection into a prioritized incident.",build:(s)=>({
+    title:"Triage Agent prioritizes the alert",
+    text:"The agent evaluates severity, confidence and impact.",
+    html:"<div class='grid gap-3 sm:grid-cols-3'><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Severity</div><div class='mt-1 text-xl font-bold "+(s.severity==="CRITICAL"?"text-red-400":"text-amber-300")+"'>"+s.severity+"</div></div><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Confidence</div><div class='mt-1 text-xl font-bold'>93%</div></div><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Priority</div><div class='mt-1 text-xl font-bold'>P1</div></div></div>"
+  })},
+  {key:"intel",label:"Threat Intelligence",short:"Intel",agent:"Threat Intelligence Agent",why:"Indicators are enriched with contextual intelligence and MITRE ATT&CK mapping.",build:(s)=>({
+    title:"Threat Intelligence Agent enriches the case",
+    text:"The agent attaches ATT&CK context and security intelligence to the incident.",
+    html:"<div class='grid gap-3 sm:grid-cols-2'><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>MITRE technique</div><div class='mt-1 font-semibold text-sky-300'>"+esc(s.id)+"</div><div class='mt-1 text-xs text-slate-400'>"+esc(s.name)+"</div></div><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Tactic context</div><div class='mt-1 font-semibold'>Enterprise ATT&CK</div><div class='mt-1 text-xs text-slate-400'>Technique-to-incident enrichment attached</div></div></div>"
+  })},
+  {key:"investigate",label:"Investigation Agent",short:"Investigate",agent:"Investigation Agent",why:"The investigation stage pulls together evidence, indicators and supporting findings.",build:(s)=>({
+    title:"Investigation Agent builds the case",
+    text:"Evidence is assembled into a structured incident record.",
+    html:"<div class='space-y-2'><div class='rounded-lg border border-slate-800 p-3 text-xs'><span class='text-slate-500'>IOC:</span> 203.0.113.50</div><div class='rounded-lg border border-slate-800 p-3 text-xs'><span class='text-slate-500'>Finding:</span> "+esc(s.detection)+"</div><div class='rounded-lg border border-slate-800 p-3 text-xs'><span class='text-slate-500'>Correlation:</span> 3 related events share the same source pivot</div><div class='rounded-lg border border-slate-800 p-3 text-xs'><span class='text-slate-500'>Evidence status:</span> preserved for analyst review</div></div>"
+  })},
+  {key:"reason",label:"Reasoning Engine",short:"Reason",agent:"Reasoning Engine",why:"The reasoning layer explains what happened, why it matters and what to do next.",build:(s)=>({
+    title:"Reasoning Engine produces an analyst-ready summary",
+    text:"A deterministic reasoning flow generates the incident narrative and next steps.",
+    html:"<div class='rounded-lg border border-violet-500/20 bg-violet-500/5 p-4'><div class='text-xs uppercase tracking-wide text-violet-300'>Reasoning summary</div><p class='mt-2 text-sm leading-6'>A "+esc(s.severity.toLowerCase())+" severity event matching "+esc(s.name)+" was correlated with recent activity from the same source. Recommended next step: validate the evidence, review affected assets and prepare a contained response.</p><div class='mt-3 text-xs text-slate-400'>Engine: deterministic fallback • Priority: P1 • Human review required</div></div>"
+  })},
+  {key:"approve",label:"Human Approval Gate",short:"Approve",agent:"Governance",why:"The platform does not silently execute consequential response actions. A human analyst must approve them.",build:(s)=>({
+    title:"Human approval gate",
+    text:"The Response Agent can recommend an action, but the system pauses here until a human approves it.",
+    html:"<div class='grid gap-3 sm:grid-cols-2'><div class='rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4'><div class='text-xs uppercase tracking-wide text-emerald-400'>Recommended response</div><div class='mt-2 font-semibold'>Contain affected source and preserve evidence</div></div><div class='rounded-lg border border-amber-500/20 bg-amber-500/5 p-4'><div class='text-xs uppercase tracking-wide text-amber-300'>Governance</div><div class='mt-2 font-semibold'>Waiting for analyst approval</div></div></div>"
+  })},
+  {key:"respond",label:"Response + Reporting",short:"Respond",agent:"Response + Reporting Agents",why:"Once approved, the response plan is marked executed and the incident is turned into a clear SOC report.",build:(s)=>({
+    title:"Approved response and incident report",
+    text:"The final stage records the response, closes the governance loop and produces a reportable incident.",
+    html:"<div class='grid gap-3 sm:grid-cols-2'><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Response</div><div class='mt-1 font-semibold text-emerald-400'>Simulated containment executed</div><div class='mt-1 text-xs text-slate-400'>No real host or network action performed</div></div><div class='rounded-lg bg-slate-900 p-4'><div class='text-xs text-slate-500'>Report</div><div class='mt-1 font-semibold'>Incident report generated</div><div class='mt-1 text-xs text-slate-400'>MITRE, findings, IOCs, reasoning and governance included</div></div></div>"
+  })}
+];
 
 const attackScenarios=[
  {key:"sql",title:"SQL Injection",severity:"HIGH",id:"T1190",name:"Exploit Public-Facing Application",detection:"Potential SQL injection activity detected"},
@@ -121,25 +215,11 @@ const attackScenarios=[
  {key:"bruteforce",title:"Brute Force",severity:"HIGH",id:"T1110",name:"Brute Force",detection:"Repeated credential guessing detected"},
  {key:"phishing",title:"Phishing Link",severity:"HIGH",id:"T1566.002",name:"Phishing: Spearphishing Link",detection:"Suspicious link-delivery activity detected"},
  {key:"powershell",title:"PowerShell",severity:"HIGH",id:"T1059.001",name:"Command and Scripting Interpreter: PowerShell",detection:"Suspicious PowerShell execution detected"},
- {key:"cmd",title:"Windows Command Shell",severity:"HIGH",id:"T1059.003",name:"Command and Scripting Interpreter: Windows Command Shell",detection:"Suspicious command-shell activity detected"},
- {key:"cred-dump",title:"Credential Dumping",severity:"CRITICAL",id:"T1003",name:"OS Credential Dumping",detection:"Potential credential dumping behavior detected"},
- {key:"lsass",title:"LSASS Memory",severity:"CRITICAL",id:"T1003.001",name:"OS Credential Dumping: LSASS Memory",detection:"Potential LSASS memory access detected"},
- {key:"valid-accounts",title:"Valid Accounts",severity:"HIGH",id:"T1078",name:"Valid Accounts",detection:"Suspicious authenticated access detected"},
- {key:"remote-services",title:"Remote Services",severity:"HIGH",id:"T1021",name:"Remote Services",detection:"Lateral movement via remote services detected"},
  {key:"web-shell",title:"Web Shell",severity:"CRITICAL",id:"T1505.003",name:"Server Software Component: Web Shell",detection:"Potential web shell persistence detected"},
- {key:"scheduled-task",title:"Scheduled Task",severity:"HIGH",id:"T1053.005",name:"Scheduled Task/Job: Scheduled Task",detection:"Suspicious scheduled execution detected"},
- {key:"tool-transfer",title:"Ingress Tool Transfer",severity:"HIGH",id:"T1105",name:"Ingress Tool Transfer",detection:"Suspicious file/tool transfer detected"},
  {key:"network-scan",title:"Network Service Scanning",severity:"MEDIUM",id:"T1046",name:"Network Service Scanning",detection:"Reconnaissance and service discovery detected"},
- {key:"account-discovery",title:"Account Discovery",severity:"MEDIUM",id:"T1087",name:"Account Discovery",detection:"Account enumeration detected"},
- {key:"process-discovery",title:"Process Discovery",severity:"MEDIUM",id:"T1057",name:"Process Discovery",detection:"Process enumeration detected"},
- {key:"system-info",title:"System Information Discovery",severity:"MEDIUM",id:"T1082",name:"System Information Discovery",detection:"Host profiling activity detected"},
- {key:"software-discovery",title:"Software Discovery",severity:"MEDIUM",id:"T1518",name:"Software Discovery",detection:"Installed software enumeration detected"},
- {key:"screen-capture",title:"Screen Capture",severity:"HIGH",id:"T1113",name:"Screen Capture",detection:"Potential screen capture activity detected"},
- {key:"local-data",title:"Data from Local System",severity:"HIGH",id:"T1005",name:"Data from Local System",detection:"Suspicious local data collection detected"},
- {key:"exfil-c2",title:"Exfiltration Over C2",severity:"CRITICAL",id:"T1041",name:"Exfiltration Over C2 Channel",detection:"Potential outbound data exfiltration detected"},
- {key:"client-exploit",title:"Client-Side Exploitation",severity:"HIGH",id:"T1203",name:"Exploitation for Client Execution",detection:"Potential client-side exploitation detected"},
- {key:"malicious-file",title:"Malicious File Execution",severity:"HIGH",id:"T1204.002",name:"User Execution: Malicious File",detection:"Potential malicious file execution detected"},
- {key:"data-destruction",title:"Data Destruction",severity:"CRITICAL",id:"T1485",name:"Data Destruction",detection:"Potential destructive impact activity detected"}
+ {key:"cred-dump",title:"Credential Dumping",severity:"CRITICAL",id:"T1003",name:"OS Credential Dumping",detection:"Potential credential dumping behavior detected"},
+ {key:"valid-accounts",title:"Valid Accounts",severity:"HIGH",id:"T1078",name:"Valid Accounts",detection:"Suspicious authenticated access detected"},
+ {key:"malicious-file",title:"Malicious File Execution",severity:"HIGH",id:"T1204.002",name:"User Execution: Malicious File",detection:"Potential malicious file execution detected"}
 ];
 
 const attackSelect=document.getElementById("attackType");
@@ -152,62 +232,173 @@ function logSelectedAttack(){
  logPublic("attack_selected",{technique_id:s.id,technique:s.name,title:s.title});
 }
 
-function showDemo(s){
- document.getElementById("demoStatus").textContent="Test completed";
- document.getElementById("demoStatus").className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400";
- document.getElementById("demoSeverity").textContent=s.severity;
- document.getElementById("demoMitre").textContent=s.id+" • "+s.name;
- document.getElementById("demoDetection").textContent="Triggered";
- document.getElementById("demoResponse").textContent="Human approval";
+let demoState={running:false,index:-1,timer:null,scenario:null};
+
+function renderFlow(){
+ document.getElementById("flowStrip").innerHTML=stages.map((s,i)=>{
+   const done=i<demoState.index, active=i===demoState.index;
+   const cls=active?"border-sky-400 bg-sky-500/10 text-sky-300":done?"border-emerald-500/30 bg-emerald-500/5 text-emerald-300":"border-slate-800 bg-slate-950 text-slate-500";
+   return "<div class='flex items-center gap-2'><div class='rounded-lg border px-3 py-2 "+cls+"'><span class='font-semibold'>"+String(i+1).padStart(2,"0")+"</span> "+esc(s.short)+"</div>"+(i<stages.length-1?"<span class='text-slate-700'>→</span>":"")+"</div>";
+ }).join("");
+ document.getElementById("explainProgress").textContent=Math.max(0,demoState.index+1)+" / "+stages.length;
 }
 
-function runAttackTest(){
- const s=currentScenario(),box=document.getElementById("attackResult");
- logPublic("attack_test",{technique_id:s.id,technique:s.name,title:s.title,severity:s.severity});
- box.classList.remove("hidden");
- box.innerHTML="<div class='font-semibold'>"+esc(s.title)+"</div><div class='mt-2 text-xs text-slate-400'>"+esc(s.detection)+"</div><div class='mt-3 grid gap-2 text-xs sm:grid-cols-3'><div class='rounded bg-slate-900 p-2'>Severity: "+esc(s.severity)+"</div><div class='rounded bg-slate-900 p-2'>MITRE: "+esc(s.id)+"</div><div class='rounded bg-slate-900 p-2'>Governance: Human approval</div></div><div class='mt-3 text-xs text-slate-500'>Synthetic simulation only. No exploit payload is executed.</div>";
- showDemo(s);
+function renderExplainCards(){
+ document.getElementById("explainCards").innerHTML=stages.map((s,i)=>{
+   const done=i<demoState.index,active=i===demoState.index;
+   const cls=active?"border-sky-500/40 bg-sky-500/5":done?"border-emerald-500/20 bg-emerald-500/5":"border-slate-800 bg-slate-950";
+   return "<div class='rounded-lg border p-4 "+cls+"'><div class='flex items-center gap-2'><span class='rounded-full border border-slate-700 px-2 py-1 text-[10px]'>"+String(i+1).padStart(2,"0")+"</span><div class='text-sm font-semibold'>"+esc(s.label)+"</div></div><div class='mt-2 text-xs leading-5 text-slate-400'>"+esc(s.why)+"</div></div>";
+ }).join("");
+}
+
+function addStream(message,tone="normal"){
+ const box=document.getElementById("eventStream"),item=document.createElement("div");
+ const time=new Date().toLocaleTimeString();
+ const color=tone==="success"?"text-emerald-300":tone==="active"?"text-sky-300":tone==="warn"?"text-amber-300":"text-slate-400";
+ item.className="step-enter rounded border border-slate-800 bg-slate-900 p-3";
+ item.innerHTML="<div class='flex gap-3'><span class='text-slate-600'>"+esc(time)+"</span><span class='"+color+"'>"+esc(message)+"</span></div>";
+ box.prepend(item);
+}
+
+function updateOutput(){
+ const s=demoState.scenario;
+ document.getElementById("outIncident").textContent=demoState.index>=0?"INC-DEMO-"+s.id:"Not created";
+ document.getElementById("outSeverity").textContent=demoState.index>=3?s.severity:"N/A";
+ document.getElementById("outMitre").textContent=demoState.index>=5?s.id:"N/A";
+ document.getElementById("outPriority").textContent=demoState.index>=3?"P1":"N/A";
+ document.getElementById("outApproval").textContent=demoState.index>=8?"APPROVED":"Pending";
+ document.getElementById("outResponse").textContent=demoState.index>=9?"SIMULATED":"Not executed";
+}
+
+function renderStage(){
+ const i=demoState.index,s=demoState.scenario;
+ renderFlow(); renderExplainCards(); updateOutput();
+ if(i<0){
+   document.getElementById("currentStageTitle").textContent="Ready to start";
+   document.getElementById("currentStageExplain").textContent="Select an attack and click Run Full Demo. The workflow will move through nine logical SOC stages.";
+   document.getElementById("stageBadge").textContent="IDLE";
+   document.getElementById("stageBody").innerHTML="<div class='rounded-lg border border-dashed border-slate-800 p-10 text-center text-sm text-slate-500'>Your first simulated security event will appear here.</div>";
+   document.getElementById("streamState").textContent="Waiting";
+   return;
+ }
+ const stage=stages[i],data=stage.build(s);
+ document.getElementById("currentStageTitle").textContent=stage.label;
+ document.getElementById("currentStageExplain").textContent=stage.why;
+ document.getElementById("stageBadge").textContent=demoState.running?"PROCESSING":"COMPLETE";
+ document.getElementById("stageBadge").className="rounded-full border "+(demoState.running?"border-sky-500/30 bg-sky-500/10 text-sky-300":"border-emerald-500/30 bg-emerald-500/10 text-emerald-300")+" px-3 py-1 text-xs";
+ document.getElementById("stageBody").innerHTML="<div class='step-enter'><div class='mb-3 text-sm text-slate-300'>"+esc(data.text)+"</div>"+data.html+"</div>";
+ document.getElementById("streamState").textContent=demoState.running?"Live simulation":"Finished";
+ document.getElementById("nextStepBtn").disabled=demoState.running || i>=stages.length-1;
+ document.getElementById("nextStepBtn").textContent=i>=stages.length-1?"Completed":"Next Step";
+}
+
+function streamMessageFor(stage){
+ const s=demoState.scenario;
+ return [
+   "Event ingested: structured security event saved",
+   "Detection fired: "+s.detection,
+   "Correlation matched 3 recent event(s)",
+   "Triage Agent assigned severity "+s.severity+" and priority P1",
+   "Threat Intelligence Agent mapped "+s.id+" / "+s.name,
+   "Investigation Agent assembled IOCs and supporting findings",
+   "Reasoning Engine generated analyst-ready incident summary",
+   "Governance paused response for human approval",
+   "Human approval recorded for simulated containment",
+   "Response + Reporting complete: incident report generated"
+ ][stage];
+}
+
+function enterStage(i){
+ demoState.index=i;
+ renderStage();
+ addStream(streamMessageFor(i),i===8?"warn":i===9?"success":"active");
+ logPublic("attack_test",{technique_id:demoState.scenario.id,technique:demoState.scenario.name,stage:i+1,stage_name:stages[i].label,simulation:true});
+}
+
+function advanceDemo(){
+ if(demoState.running || !demoState.scenario)return;
+ if(demoState.index>=stages.length-1)return;
+ enterStage(demoState.index+1);
+}
+
+function runFullDemo(){
+ const s=currentScenario();
+ clearTimeout(demoState.timer);
+ demoState={running:true,index:-1,timer:null,scenario:s};
+ document.getElementById("eventStream").innerHTML="";
+ document.getElementById("runDemoBtn").disabled=true;
+ document.getElementById("nextStepBtn").disabled=true;
+ document.getElementById("streamState").textContent="Starting";
+ renderStage();
+ addStream("Demo started: "+s.title,"active");
+ logPublic("attack_test",{technique_id:s.id,technique:s.name,workflow:"full_soc_demo"});
+ let i=0;
+ const tick=()=>{
+   if(i>=stages.length){
+     demoState.running=false;
+     renderStage();
+     document.getElementById("runDemoBtn").disabled=false;
+     document.getElementById("nextStepBtn").disabled=false;
+     document.getElementById("stageBadge").textContent="COMPLETE";
+     document.getElementById("streamState").textContent="Complete";
+     addStream("Full SOC workflow complete. No real action was executed.","success");
+     logPublic("attack_test",{technique_id:s.id,technique:s.name,workflow:"full_soc_demo_complete"});
+     return;
+   }
+   demoState.index=i;
+   renderStage();
+   addStream(streamMessageFor(i),i===8?"warn":i===9?"success":"active");
+   i++;
+   demoState.timer=setTimeout(tick,1500);
+ };
+ tick();
+}
+
+function resetDemo(){
+ clearTimeout(demoState.timer);
+ demoState={running:false,index:-1,timer:null,scenario:null};
+ document.getElementById("runDemoBtn").disabled=false;
+ document.getElementById("nextStepBtn").disabled=true;
+ document.getElementById("eventStream").innerHTML="";
+ renderStage();
 }
 
 async function runWebTest(){
  const target=document.getElementById("webTarget").value.trim(),box=document.getElementById("webResult");
  if(!/^https:\/\//i.test(target)){box.classList.remove("hidden");box.innerHTML="<div class='text-amber-300'>Use a public HTTPS URL.</div>";return;}
  logPublic("web_test_started",{target});
- box.classList.remove("hidden"); box.innerHTML="<div class='text-slate-400'>Running one-time HTTPS inspection...</div>";
+ box.classList.remove("hidden");box.innerHTML="<div class='text-slate-400'>Running one-time HTTPS inspection...</div>";
  try{
-   const r=await fetch(API_BASE+"/api/public/security-test",{method:"POST",headers:{"Content-Type":"application/json","X-Visitor-ID":VISITOR_ID},body:JSON.stringify({url:target})});
-   const d=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(d.detail||("API "+r.status));
-   document.getElementById("demoStatus").textContent="Web test completed";
-   box.innerHTML="<div class='font-semibold'>"+esc(d.url)+"</div><div class='mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4'><div class='rounded bg-slate-900 p-2'>Status: "+esc((d.status||"unknown").toUpperCase())+"</div><div class='rounded bg-slate-900 p-2'>HTTP: "+esc(d.status_code??"N/A")+"</div><div class='rounded bg-slate-900 p-2'>TLS: "+esc(d.tls?.valid?"Valid":"Issue")+"</div><div class='rounded bg-slate-900 p-2'>Response: "+esc(d.response_ms??"N/A")+" ms</div></div><div class='mt-3 text-xs text-slate-400'>Missing headers: "+esc((d.missing_security_headers||[]).join(", ")||"None")+"</div><div class='mt-2 text-xs text-amber-200'>Findings: "+esc((d.findings||[]).slice(0,6).join(" | ")||"None")+"</div>";
-   logPublic("web_test_completed",{target,status:d.status,status_code:d.status_code,response_ms:d.response_ms,finding_count:(d.findings||[]).length});
+  const r=await fetch(API_BASE+"/api/public/security-test",{method:"POST",headers:{"Content-Type":"application/json","X-Visitor-ID":VISITOR_ID},body:JSON.stringify({url:target})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||("API "+r.status));
+  box.innerHTML="<div class='font-semibold'>"+esc(d.url)+"</div><div class='mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4'><div class='rounded bg-slate-900 p-2'>Status: "+esc((d.status||"unknown").toUpperCase())+"</div><div class='rounded bg-slate-900 p-2'>HTTP: "+esc(d.status_code??"N/A")+"</div><div class='rounded bg-slate-900 p-2'>TLS: "+esc(d.tls?.valid?"Valid":"Issue")+"</div><div class='rounded bg-slate-900 p-2'>Response: "+esc(d.response_ms??"N/A")+" ms</div></div><div class='mt-3 text-xs text-slate-400'>Missing headers: "+esc((d.missing_security_headers||[]).join(", ")||"None")+"</div><div class='mt-2 text-xs text-amber-200'>Findings: "+esc((d.findings||[]).slice(0,6).join(" | ")||"None")+"</div>";
+  logPublic("web_test_completed",{target,status:d.status,status_code:d.status_code,response_ms:d.response_ms,finding_count:(d.findings||[]).length});
  }catch(e){
-   box.innerHTML="<div class='text-amber-300'>Test failed: "+esc(e.message)+"</div>";
-   logPublic("web_test_failed",{target,error:String(e.message).slice(0,240)});
+  box.innerHTML="<div class='text-amber-300'>Test failed: "+esc(e.message)+"</div>";
+  logPublic("web_test_failed",{target,error:String(e.message).slice(0,240)});
  }
 }
 
 let mitreData={version:null,count:0,techniques:[]},mitrePageIndex=0;
-const MITRE_PAGE_SIZE=30;
+const MITRE_PAGE_SIZE=24;
 
 async function loadMitreLibrary(force=false){
  const status=document.getElementById("mitreLibraryStatus");
  try{
-   const cacheKey="soc_mitre_v19_2";
-   let cached=null;
-   if(!force)try{cached=JSON.parse(localStorage.getItem(cacheKey)||"null");}catch(e){}
-   if(cached && cached.saved_at && Date.now()-cached.saved_at < 86400000){mitreData=cached.payload;renderMitreMeta();renderMitreLibrary();return;}
-   status.textContent="Fetching the current MITRE ATT&CK Enterprise catalogue...";
-   const r=await fetch(API_BASE+"/api/public/mitre/techniques");
-   const d=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(d.detail||("API "+r.status));
-   mitreData=d;
-   localStorage.setItem(cacheKey,JSON.stringify({saved_at:Date.now(),payload:d}));
-   logPublic("mitre_library_opened",{version:d.version,count:d.count});
-   renderMitreMeta(); renderMitreLibrary();
- }catch(e){
-   status.textContent="MITRE catalogue unavailable right now. Use the official MITRE link above.";
- }
+  const cacheKey="soc_mitre_v19_2";
+  let cached=null;
+  if(!force)try{cached=JSON.parse(localStorage.getItem(cacheKey)||"null");}catch(e){}
+  if(cached && cached.saved_at && Date.now()-cached.saved_at<86400000){mitreData=cached.payload;renderMitreMeta();renderMitreLibrary();return;}
+  status.textContent="Fetching MITRE ATT&CK Enterprise catalogue...";
+  const r=await fetch(API_BASE+"/api/public/mitre/techniques");
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||("API "+r.status));
+  mitreData=d;
+  localStorage.setItem(cacheKey,JSON.stringify({saved_at:Date.now(),payload:d}));
+  logPublic("mitre_library_opened",{version:d.version,count:d.count});
+  renderMitreMeta();renderMitreLibrary();
+ }catch(e){status.textContent="MITRE catalogue unavailable right now. Use the official MITRE link above.";}
 }
 
 function renderMitreMeta(){
@@ -219,17 +410,16 @@ function renderMitreMeta(){
 }
 
 function renderMitreLibrary(){
- const q=document.getElementById("mitreSearch").value.trim().toLowerCase();
- const type=document.getElementById("mitreTypeFilter").value;
+ const q=document.getElementById("mitreSearch").value.trim().toLowerCase(),type=document.getElementById("mitreTypeFilter").value;
  const rows=(mitreData.techniques||[]).filter(x=>{
-   if(type!=="all"&&x.type!==type)return false;
-   if(!q)return true;
-   return [x.id,x.name,x.description,(x.tactics||[]).join(" "),(x.platforms||[]).join(" ")].join(" ").toLowerCase().includes(q);
+  if(type!=="all"&&x.type!==type)return false;
+  if(!q)return true;
+  return [x.id,x.name,x.description,(x.tactics||[]).join(" "),(x.platforms||[]).join(" ")].join(" ").toLowerCase().includes(q);
  });
  const maxPage=Math.max(0,Math.ceil(rows.length/MITRE_PAGE_SIZE)-1);
  if(mitrePageIndex>maxPage)mitrePageIndex=maxPage;
  const pageRows=rows.slice(mitrePageIndex*MITRE_PAGE_SIZE,(mitrePageIndex+1)*MITRE_PAGE_SIZE);
- document.getElementById("mitreLibrary").innerHTML=pageRows.length?pageRows.map(x=>"<article class='rounded-lg border border-slate-800 bg-slate-950 p-4'><div class='flex items-start justify-between gap-3'><div><div class='font-medium'>"+esc(x.name)+"</div><div class='mt-1 text-xs text-sky-400'>"+esc(x.id)+" • "+esc(x.type)+"</div></div><div class='flex items-center gap-2'><button onclick='simulateMitre("+JSON.stringify(x.id)+")' class='rounded border border-sky-500/30 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/10'>Simulate</button><a href='"+esc(x.url)+"' target='_blank' rel='noopener' onclick='logTechnique("+JSON.stringify(x.id)+")' class='text-xs text-slate-400 hover:text-white'>MITRE ↗</a></div></div><div class='mt-3 text-xs text-slate-500'>"+esc((x.tactics||[]).join(" • ")||"Tactic not listed")+"</div><div class='mt-2 text-xs text-slate-400 line-clamp-3'>"+esc(x.description||"")+"</div></article>").join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500 md:col-span-2 xl:col-span-3">No ATT&CK items match your filter.</div>';
+ document.getElementById("mitreLibrary").innerHTML=pageRows.length?pageRows.map(x=>"<article class='rounded-lg border border-slate-800 bg-slate-950 p-4'><div class='flex items-start justify-between gap-3'><div><div class='font-medium'>"+esc(x.name)+"</div><div class='mt-1 text-xs text-sky-400'>"+esc(x.id)+" • "+esc(x.type)+"</div></div><div class='flex items-center gap-2'><button onclick='simulateMitre("+JSON.stringify(x.id)+")' class='rounded border border-sky-500/30 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/10'>Simulate Workflow</button><a href='"+esc(x.url)+"' target='_blank' rel='noopener' onclick='logTechnique("+JSON.stringify(x.id)+")' class='text-xs text-slate-400 hover:text-white'>MITRE ↗</a></div></div><div class='mt-3 text-xs text-slate-500'>"+esc((x.tactics||[]).join(" • ")||"Tactic not listed")+"</div><div class='mt-2 text-xs text-slate-400 line-clamp-3'>"+esc(x.description||"")+"</div></article>").join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500 md:col-span-2 xl:col-span-3">No ATT&CK items match your filter.</div>';
  document.getElementById("mitrePageStatus").textContent=rows.length?"Showing "+(mitrePageIndex*MITRE_PAGE_SIZE+1)+"-"+Math.min((mitrePageIndex+1)*MITRE_PAGE_SIZE,rows.length)+" of "+rows.length:"0 results";
  document.getElementById("mitreLibraryStatus").textContent=mitreData.count?("MITRE ATT&CK Enterprise v"+mitreData.version+" loaded."):document.getElementById("mitreLibraryStatus").textContent;
 }
@@ -240,32 +430,28 @@ function mitrePage(direction){
  window.scrollTo({top:document.getElementById("mitreLibrary").offsetTop-120,behavior:"smooth"});
 }
 function logTechnique(id){logPublic("mitre_technique_opened",{technique_id:id});}
+
 function simulateMitre(id){
  const t=(mitreData.techniques||[]).find(x=>x.id===id);
  if(!t)return;
- const scenario={severity:"MEDIUM",id:t.id,name:t.name,detection:"Synthetic ATT&CK technique simulation triggered"};
- logPublic("attack_test",{technique_id:t.id,technique:t.name,source:"mitre_library",simulation:true});
- const box=document.getElementById("attackResult");
- box.classList.remove("hidden");
- box.innerHTML="<div class='font-semibold'>"+esc(t.name)+"</div><div class='mt-2 text-xs text-slate-400'>"+esc(scenario.detection)+"</div><div class='mt-3 grid gap-2 text-xs sm:grid-cols-3'><div class='rounded bg-slate-900 p-2'>Severity: MEDIUM</div><div class='rounded bg-slate-900 p-2'>MITRE: "+esc(t.id)+"</div><div class='rounded bg-slate-900 p-2'>Governance: Human approval</div></div><div class='mt-3 text-xs text-slate-500'>Synthetic simulation only. No exploit payload is executed.</div>";
- document.getElementById("demoStatus").textContent="MITRE simulation completed";
- document.getElementById("demoSeverity").textContent="MEDIUM";
- document.getElementById("demoMitre").textContent=t.id+" • "+t.name;
- document.getElementById("demoDetection").textContent="Triggered";
- document.getElementById("demoResponse").textContent="Human approval";
+ const match=attackScenarios.find(s=>s.id===t.id);
+ if(match){attackSelect.value=match.key;}else{attackSelect.value=attackScenarios[0].key;}
+ logPublic("mitre_technique_opened",{technique_id:id,launch:"workflow_demo"});
+ window.scrollTo({top:0,behavior:"smooth"});
+ setTimeout(runFullDemo,250);
 }
+
+renderFlow();renderExplainCards();renderStage();
+logPublic("page_view",{referrer:document.referrer||null});
+logSelectedAttack();
+loadMitreLibrary();
 
 document.addEventListener("visibilitychange",()=>{
  const visible=document.visibilityState==="visible";
  document.getElementById("visitorState").textContent=visible?"● ACTIVE":"● AWAY";
  logPublic("visibility_change",{visible});
 });
-logPublic("page_view",{referrer:document.referrer||null});
-logSelectedAttack();
-loadMitreLibrary();
-setInterval(()=>{
- if(document.visibilityState==="visible")logPublic("heartbeat",{page:location.pathname});
-},20000);
+setInterval(()=>{if(document.visibilityState==="visible")logPublic("heartbeat",{page:location.pathname});},20000);
 </script>
 </body>
 </html>
