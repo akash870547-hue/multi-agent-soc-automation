@@ -1,5 +1,8 @@
-from datetime import datetime, timezone\nfrom fastapi import FastAPI, HTTPException
+from datetime import datetime, timezone
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
 from .models import SecurityEvent
 from .pipeline import process_event
 
@@ -40,7 +43,7 @@ def list_incidents():
     return list(incidents.values())
 
 
-@app.post("/api/incidents/{incident_id}/approve")\ndef approve_incident(incident_id: str):\n    incident = incidents.get(incident_id)\n    if not incident:\n        raise HTTPException(status_code=404, detail="Incident not found")\n    incident["governance"]["approved"] = True\n    incident["governance"]["approved_at"] = datetime.now(timezone.utc).isoformat()\n    incident["approved_actions"] = incident["recommendations"]\n    return incident\n\n\n@app.get("/api/incidents/{incident_id}")
+@app.get("/api/incidents/{incident_id}")
 def get_incident(incident_id: str):
     incident = incidents.get(incident_id)
     if not incident:
@@ -48,12 +51,34 @@ def get_incident(incident_id: str):
     return incident
 
 
+@app.post("/api/incidents/{incident_id}/approve")
+def approve_incident(incident_id: str):
+    incident = incidents.get(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    incident["governance"]["approved"] = True
+    incident["governance"]["approved_at"] = datetime.now(timezone.utc).isoformat()
+    incident["approved_actions"] = incident["recommendations"]
+    return incident
+
+
 @app.post("/api/events")
 def ingest_event(event: SecurityEvent):
     events.append(event.model_dump(mode="json"))
     result = process_event(event)
+
     if result:
+        prior = [
+            item for item in events[:-1]
+            if event.source_ip and item.get("source_ip") == event.source_ip
+        ]
+        if prior:
+            result["findings"].append(
+                f"Correlated with {len(prior)} earlier event(s) from the same source IP."
+            )
         incidents[result["incident_id"]] = result
+
     return {"detected": result is not None, "incident": result}
 
 
