@@ -25,7 +25,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.13.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.13.1")
 
 _cors_origins = [
     origin.strip()
@@ -196,6 +196,8 @@ def init_db():
             "content_checked": "INTEGER DEFAULT 1",
             "findings": "TEXT",
             "owner_actor": "TEXT",
+            "dns_info": "TEXT",
+            "response_metadata": "TEXT",
         }
         for column, definition in migrations.items():
             if column not in columns:
@@ -537,21 +539,73 @@ def get_tls_info(hostname: str) -> dict:
             cert = tls_socket.getpeercert()
             cipher = tls_socket.cipher()
             version = tls_socket.version()
+            peer = tls_socket.getpeername()
+
+    def _name(parts):
+        result = {}
+        for group in parts or ():
+            for key, value in group:
+                result[str(key)] = value
+        return result
+
     not_after = cert.get("notAfter")
+    not_before = cert.get("notBefore")
     expiry = None
+    issued = None
     days = None
-    if not_after:
-        expiry_dt = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
-        expiry = expiry_dt.isoformat()
-        days = max(0, (expiry_dt - datetime.now(timezone.utc)).days)
+    try:
+        if not_after:
+            expiry_dt = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+            expiry = expiry_dt.isoformat()
+            days = max(0, (expiry_dt - datetime.now(timezone.utc)).days)
+        if not_before:
+            issued_dt = datetime.strptime(not_before, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+            issued = issued_dt.isoformat()
+    except ValueError:
+        pass
+
     return {
         "valid": True,
+        "hostname": hostname,
+        "peer_address": peer[0] if peer else None,
         "expires_at": expiry,
+        "issued_at": issued,
         "days_to_expiry": days,
         "tls_version": version,
         "cipher": cipher[0] if cipher else None,
+        "cipher_bits": cipher[2] if cipher else None,
+        "subject": _name(cert.get("subject")),
+        "issuer": _name(cert.get("issuer")),
+        "serial_number": cert.get("serialNumber"),
+        "subject_alt_names": [value for kind, value in cert.get("subjectAltName", []) if kind == "DNS"],
         "check_ms": round((time.perf_counter() - started) * 1000, 2),
     }
+
+def resolve_dns(hostname: str) -> dict:
+    started = time.perf_counter()
+    records = {"A": [], "AAAA": [], "CNAME": []}
+    try:
+        for family, label in ((socket.AF_INET, "A"), (socket.AF_INET6, "AAAA")):
+            try:
+                entries = socket.getaddrinfo(hostname, None, family, socket.SOCK_STREAM)
+                for entry in entries:
+                    address = entry[4][0]
+                    if address not in records[label]:
+                        records[label].append(address)
+            except socket.gaierror:
+                pass
+        try:
+            cname = socket.getfqdn(hostname)
+            if cname and cname.lower() != hostname.lower():
+                records["CNAME"] = [cname]
+        except Exception:
+            pass
+        records["resolved"] = bool(records["A"] or records["AAAA"] or records["CNAME"])
+    except Exception as exc:
+        records["resolved"] = False
+        records["error"] = str(exc)
+    records["check_ms"] = round((time.perf_counter() - started) * 1000, 2)
+    return records
 
 
 def check_target(target_id: str, url: str, name: str | None = None, actor: str = "monitor"):
@@ -564,6 +618,10 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
     redirect_tracker = RedirectTracker()
     headers_snapshot = {}
     content_hash = None
+    content_length = 0
+    content_type = None
+    dns_info = {}
+    response_metadata = {}
     tls_info = {"valid": False, "error": "not checked"}
     previous = None
     previous_snapshot = {}
@@ -572,7 +630,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         row = connection.execute("SELECT * FROM monitor_targets WHERE target_id = ?", (target_id,)).fetchone()
         if row:
             previous = row["status"]
-            for key in ("security_headers", "tls_info", "redirect_chain", "content_hash", "findings"):
+            for key in ("security_headers", "tls_info", "redirect_chain", "content_hash", "findings", "dns_info", "response_metadata"):
                 try:
                     previous_snapshot[key] = json.loads(row[key]) if row[key] else None
                 except (TypeError, json.JSONDecodeError):
@@ -585,8 +643,20 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
             status_code = response.status
             final_url = response.geturl()
             raw_body = response.read(1024 * 1024)
+            content_length = len(raw_body)
             content_hash = hashlib.sha256(raw_body).hexdigest()
             headers_snapshot = {str(k).lower(): str(v) for k, v in response.headers.items()}
+            content_type = headers_snapshot.get("content-type")
+            response_metadata = {
+                "server": headers_snapshot.get("server"),
+                "powered_by": headers_snapshot.get("x-powered-by"),
+                "content_type": content_type,
+                "content_length_bytes": content_length,
+                "etag": headers_snapshot.get("etag"),
+                "last_modified": headers_snapshot.get("last-modified"),
+                "cache_control": headers_snapshot.get("cache-control"),
+                "date": headers_snapshot.get("date"),
+            }
             if status_code >= 500:
                 status = "down"
             elif status_code >= 400:
@@ -595,6 +665,17 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         status_code = exc.code
         final_url = exc.geturl() or url
         headers_snapshot = {str(k).lower(): str(v) for k, v in exc.headers.items()}
+        content_type = headers_snapshot.get("content-type")
+        response_metadata = {
+            "server": headers_snapshot.get("server"),
+            "powered_by": headers_snapshot.get("x-powered-by"),
+            "content_type": content_type,
+            "content_length_bytes": 0,
+            "etag": headers_snapshot.get("etag"),
+            "last_modified": headers_snapshot.get("last-modified"),
+            "cache_control": headers_snapshot.get("cache-control"),
+            "date": headers_snapshot.get("date"),
+        }
         error = str(exc)
         status = "degraded" if exc.code < 500 else "down"
     except Exception as exc:
@@ -602,6 +683,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         error = str(exc)
 
     hostname = urlparse(url).hostname
+    dns_info = resolve_dns(hostname) if hostname else {"resolved": False, "error": "missing hostname"}
     try:
         tls_info = get_tls_info(hostname) if hostname else {"valid": False, "error": "missing hostname"}
     except Exception as exc:
@@ -661,10 +743,11 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         connection.execute(
             """UPDATE monitor_targets SET status=?, status_code=?, response_ms=?,
                last_checked=?, last_error=?, security_headers=?, tls_info=?,
-               redirect_chain=?, content_hash=?, findings=? WHERE target_id=?""",
+               redirect_chain=?, content_hash=?, findings=?, dns_info=?, response_metadata=? WHERE target_id=?""",
             (status, status_code, response_ms, iso_now(), error,
              json.dumps(headers_snapshot), json.dumps(tls_info),
-             json.dumps(redirect_chain), content_hash, json.dumps(findings), target_id),
+             json.dumps(redirect_chain), content_hash, json.dumps(findings),
+             json.dumps(dns_info), json.dumps(response_metadata), target_id),
         )
         connection.execute(
             """INSERT INTO monitor_checks
@@ -692,6 +775,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
 
     return {
         "target_id": target_id,
+        "host": hostname,
         "url": url,
         "name": name,
         "status": status,
@@ -705,6 +789,9 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         "tls": tls_info,
         "redirect_chain": redirect_chain,
         "content_hash": content_hash,
+        "content_length_bytes": content_length,
+        "response_metadata": response_metadata,
+        "dns": dns_info,
         "findings": findings,
         "alerts_generated": [item[0] for item in alerts[:5]],
     }
