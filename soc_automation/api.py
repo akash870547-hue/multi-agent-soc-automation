@@ -252,8 +252,15 @@ def authenticate(x_api_key: str | None) -> tuple[str, str]:
         with db() as connection:
             rows = connection.execute("SELECT key_id, role, key_hash, name FROM api_keys WHERE revoked_at IS NULL").fetchall()
         for row in rows:
-            if hmac.compare_digest(digest, row["key_hash"]):
+                if hmac.compare_digest(digest, row["key_hash"]):
                 actor = row["name"].removeprefix("session:")
+                if row["name"].startswith("session:"):
+                    user_row = connection.execute(
+                        "SELECT revoked_at FROM users WHERE username=?",
+                        (actor,),
+                    ).fetchone()
+                    if not user_row or user_row["revoked_at"]:
+                        continue
                 return actor or row["key_id"], row["role"]
     raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
@@ -600,7 +607,9 @@ def revoke_user(
             raise HTTPException(status_code=404, detail="User not found")
         if row["username"] == actor:
             raise HTTPException(status_code=400, detail="You cannot revoke the account currently being used")
+        username = row["username"]
         connection.execute("UPDATE users SET revoked_at=? WHERE user_id=?", (iso_now(), user_id))
+        connection.execute("UPDATE api_keys SET revoked_at=? WHERE name=?", (iso_now(), "session:" + username))
     audit("revoke_user", user_id, x_actor or actor)
     return {"user_id": user_id, "revoked": True}
 
