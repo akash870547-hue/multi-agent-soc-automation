@@ -25,7 +25,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.10.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.11.0")
 
 _cors_origins = [
     origin.strip()
@@ -697,6 +697,30 @@ def ready():
     except sqlite3.Error as exc:
         raise HTTPException(status_code=503, detail=f"Storage unavailable: {exc}")
 
+
+@app.post("/api/auth/register")
+def register_user(payload: UserRegister, http_request: Request):
+    rate_limit(f"register:{_public_client_host(http_request)}", 5, 600)
+    username = payload.username.strip().lower()
+    role = payload.role.lower().strip()
+    if role != "analyst":
+        raise HTTPException(status_code=403, detail="Public registration is limited to Analyst accounts")
+    if not username or len(username) > 40 or not username.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Username may contain only letters, numbers, underscores, or hyphens")
+    if len(payload.password) < 12:
+        raise HTTPException(status_code=400, detail="Password must be at least 12 characters")
+    password_hash = hash_password(payload.password)
+    user_id = "usr_" + secrets.token_hex(8)
+    try:
+        with db() as connection:
+            connection.execute(
+                "INSERT INTO users(user_id,username,role,password_hash,created_at) VALUES (?,?,?,?,?)",
+                (user_id, username, role, password_hash, iso_now()),
+            )
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="Username already exists")
+    audit("self_register", user_id, "public")
+    return {"registered": True, "user_id": user_id, "username": username, "role": role}
 
 @app.post("/api/auth/login")
 def login(request: LoginRequest):
