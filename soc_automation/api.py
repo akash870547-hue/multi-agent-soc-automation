@@ -25,7 +25,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.8.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.10.0")
 
 _cors_origins = [
     origin.strip()
@@ -37,7 +37,7 @@ app.add_middleware(
     allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-API-Key", "X-Actor", "X-Visitor-ID"],
+    allow_headers=["Content-Type", "X-API-Key", "X-Actor", "X-Visitor-ID", "X-Visitor-Name"],
 )
 
 DB_PATH = os.getenv("SOC_DB_PATH", "soc_automation.db")
@@ -85,6 +85,7 @@ class LoginRequest(BaseModel):
 
 class PublicTelemetry(BaseModel):
     visitor_id: str
+    visitor_name: str
     action: str
     page: str | None = None
     detail: dict | None = None
@@ -189,6 +190,7 @@ def init_db():
             ip_address TEXT,
             user_agent TEXT,
             referrer TEXT,
+            visitor_name TEXT,
             current_page TEXT,
             last_action TEXT,
             total_events INTEGER NOT NULL DEFAULT 0,
@@ -204,6 +206,9 @@ def init_db():
             created_at TEXT NOT NULL)""")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_public_activity_created ON public_activity(created_at DESC)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_public_activity_visitor ON public_activity(visitor_id, created_at DESC)")
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(public_visitors)").fetchall()}
+        if "visitor_name" not in columns:
+            connection.execute("ALTER TABLE public_visitors ADD COLUMN visitor_name TEXT")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_public_visitors_last_seen ON public_visitors(last_seen DESC)")
         ensure_bootstrap_admin(connection)
 
@@ -325,6 +330,10 @@ PUBLIC_ACTIONS = {
     "mitre_library_opened",
     "mitre_search",
     "mitre_technique_opened",
+    "demo_started",
+    "demo_step",
+    "demo_completed",
+    "demo_report_generated",
 }
 
 def _public_client_host(request: Request) -> str:
@@ -344,9 +353,23 @@ def _clean_public_detail(detail: dict | None) -> dict:
             cleaned[key] = str(value)[:500]
     return cleaned
 
-def record_public_activity(visitor_id: str, action: str, request: Request, page: str | None = None, detail: dict | None = None) -> None:
+def _public_name(value: str | None) -> str:
+    name = " ".join(str(value or "").strip().split())
+    if len(name) < 2 or len(name) > 80:
+        raise HTTPException(status_code=400, detail="A valid participant name is required")
+    return name
+
+def record_public_activity(
+    visitor_id: str,
+    visitor_name: str,
+    action: str,
+    request: Request,
+    page: str | None = None,
+    detail: dict | None = None,
+) -> None:
     visitor_id = str(visitor_id or "").strip()
     action = str(action or "").strip().lower()
+    name = _public_name(visitor_name)
     if not visitor_id or len(visitor_id) > 80 or action not in PUBLIC_ACTIONS:
         raise HTTPException(status_code=400, detail="Invalid public telemetry payload")
     client_host = _public_client_host(request)
@@ -356,22 +379,23 @@ def record_public_activity(visitor_id: str, action: str, request: Request, page:
     detail_json = json.dumps(detail_value, separators=(",", ":"), ensure_ascii=True)[:5000]
     user_agent = request.headers.get("user-agent", "")[:300]
     referrer = request.headers.get("referer", "")[:500]
-    is_test = action in {"attack_test", "web_test_started", "web_test_completed", "web_test_failed"}
+    is_test = action in {"attack_test", "web_test_started", "web_test_completed", "web_test_failed", "demo_report_generated"}
     with db() as connection:
         connection.execute(
             """INSERT INTO public_visitors
-               (visitor_id,first_seen,last_seen,ip_address,user_agent,referrer,current_page,last_action,total_events,total_tests)
-               VALUES (?,?,?,?,?,?,?,?,?,?)
+               (visitor_id,first_seen,last_seen,ip_address,user_agent,referrer,visitor_name,current_page,last_action,total_events,total_tests)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(visitor_id) DO UPDATE SET
                  last_seen=excluded.last_seen,
                  ip_address=excluded.ip_address,
                  user_agent=excluded.user_agent,
                  referrer=excluded.referrer,
+                 visitor_name=excluded.visitor_name,
                  current_page=excluded.current_page,
                  last_action=excluded.last_action,
                  total_events=public_visitors.total_events + 1,
                  total_tests=public_visitors.total_tests + excluded.total_tests""",
-            (visitor_id, now, now, client_host, user_agent, referrer, page_value, action, 1, 1 if is_test else 0),
+            (visitor_id, now, now, client_host, user_agent, referrer, name, page_value, action, 1, 1 if is_test else 0),
         )
         connection.execute(
             """INSERT INTO public_activity
@@ -661,7 +685,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.9.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.10.0"}
 
 
 @app.get("/ready")
@@ -1006,6 +1030,7 @@ def public_security_test(target: MonitorTarget, request: Request):
         action = "web_test_completed" if result.get("status") in {"up", "degraded"} else "web_test_failed"
         record_public_activity(
             visitor_id,
+            request.headers.get("x-visitor-name", ""),
             action,
             request,
             page="/public.html",
@@ -1024,7 +1049,7 @@ def public_security_test(target: MonitorTarget, request: Request):
 def public_telemetry(payload: PublicTelemetry, request: Request):
     client_host = _public_client_host(request)
     rate_limit(f"public-telemetry:{client_host}", PUBLIC_TELEMETRY_RATE_LIMIT, PUBLIC_TELEMETRY_RATE_WINDOW)
-    record_public_activity(payload.visitor_id, payload.action, request, payload.page, payload.detail)
+    record_public_activity(payload.visitor_id, payload.visitor_name, payload.action, request, payload.page, payload.detail)
     return {"ok": True, "visitor_id": payload.visitor_id, "server_time": iso_now()}
 
 
