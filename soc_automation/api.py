@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import base64
 import ipaddress
 import json
@@ -52,6 +52,14 @@ RATE_WINDOW = int(os.getenv("SOC_RATE_WINDOW_SECONDS", "60"))
 MONITOR_INTERVAL = int(os.getenv("SOC_MONITOR_INTERVAL_SECONDS", "300"))
 PUBLIC_TEST_RATE_LIMIT = int(os.getenv("SOC_PUBLIC_TEST_RATE_LIMIT", "10"))
 PUBLIC_TEST_RATE_WINDOW = int(os.getenv("SOC_PUBLIC_TEST_RATE_WINDOW_SECONDS", "60"))
+PUBLIC_TELEMETRY_RATE_LIMIT = int(os.getenv("SOC_PUBLIC_TELEMETRY_RATE_LIMIT", "120"))
+PUBLIC_TELEMETRY_RATE_WINDOW = int(os.getenv("SOC_PUBLIC_TELEMETRY_RATE_WINDOW_SECONDS", "60"))
+PUBLIC_MITRE_RATE_LIMIT = int(os.getenv("SOC_PUBLIC_MITRE_RATE_LIMIT", "6"))
+PUBLIC_MITRE_RATE_WINDOW = int(os.getenv("SOC_PUBLIC_MITRE_RATE_WINDOW_SECONDS", "60"))
+MITRE_ENTERPRISE_STIX_URL = "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack-19.2.json"
+MITRE_ENTERPRISE_URL = "https://attack.mitre.org/techniques/"
+MITRE_CACHE_TTL = int(os.getenv("SOC_MITRE_CACHE_TTL_SECONDS", "86400"))
+_mitre_cache = {"expires": 0.0, "payload": None}
 _request_log: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -73,6 +81,13 @@ class UserGenerate(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class PublicTelemetry(BaseModel):
+    visitor_id: str
+    action: str
+    page: str | None = None
+    detail: dict | None = None
 
 
 def db():
@@ -167,6 +182,29 @@ def init_db():
             status_code INTEGER,
             response_ms REAL,
             findings TEXT NOT NULL)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS public_visitors (
+            visitor_id TEXT PRIMARY KEY,
+            first_seen TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            referrer TEXT,
+            current_page TEXT,
+            last_action TEXT,
+            total_events INTEGER NOT NULL DEFAULT 0,
+            total_tests INTEGER NOT NULL DEFAULT 0)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS public_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            page TEXT,
+            detail TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at TEXT NOT NULL)""")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_public_activity_created ON public_activity(created_at DESC)")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_public_activity_visitor ON public_activity(visitor_id, created_at DESC)")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_public_visitors_last_seen ON public_visitors(last_seen DESC)")
         ensure_bootstrap_admin(connection)
 
 
@@ -274,6 +312,120 @@ def require_role(x_api_key: str | None, allowed_roles: set[str]) -> tuple[str, s
         raise HTTPException(status_code=403, detail="Insufficient role permissions")
     return actor, role
 
+
+PUBLIC_ACTIONS = {
+    "page_view",
+    "heartbeat",
+    "visibility_change",
+    "attack_selected",
+    "attack_test",
+    "web_test_started",
+    "web_test_completed",
+    "web_test_failed",
+    "mitre_library_opened",
+    "mitre_search",
+    "mitre_technique_opened",
+}
+
+def _public_client_host(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+def _clean_public_detail(detail: dict | None) -> dict:
+    if not detail:
+        return {}
+    cleaned = {}
+    for key, value in list(detail.items())[:20]:
+        key = str(key)[:80]
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            cleaned[key] = value
+        elif isinstance(value, (list, tuple)):
+            cleaned[key] = [str(item)[:200] for item in value[:20]]
+        else:
+            cleaned[key] = str(value)[:500]
+    return cleaned
+
+def record_public_activity(visitor_id: str, action: str, request: Request, page: str | None = None, detail: dict | None = None) -> None:
+    visitor_id = str(visitor_id or "").strip()
+    action = str(action or "").strip().lower()
+    if not visitor_id or len(visitor_id) > 80 or action not in PUBLIC_ACTIONS:
+        raise HTTPException(status_code=400, detail="Invalid public telemetry payload")
+    client_host = _public_client_host(request)
+    now = iso_now()
+    page_value = str(page or "/")[:240]
+    detail_value = _clean_public_detail(detail)
+    detail_json = json.dumps(detail_value, separators=(",", ":"), ensure_ascii=True)[:5000]
+    user_agent = request.headers.get("user-agent", "")[:300]
+    referrer = request.headers.get("referer", "")[:500]
+    is_test = action in {"attack_test", "web_test_started", "web_test_completed", "web_test_failed"}
+    with db() as connection:
+        connection.execute(
+            """INSERT INTO public_visitors
+               (visitor_id,first_seen,last_seen,ip_address,user_agent,referrer,current_page,last_action,total_events,total_tests)
+               VALUES (?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(visitor_id) DO UPDATE SET
+                 last_seen=excluded.last_seen,
+                 ip_address=excluded.ip_address,
+                 user_agent=excluded.user_agent,
+                 referrer=excluded.referrer,
+                 current_page=excluded.current_page,
+                 last_action=excluded.last_action,
+                 total_events=public_visitors.total_events + 1,
+                 total_tests=public_visitors.total_tests + excluded.total_tests""",
+            (visitor_id, now, now, client_host, user_agent, referrer, page_value, action, 1, 1 if is_test else 0),
+        )
+        connection.execute(
+            """INSERT INTO public_activity
+               (visitor_id,action,page,detail,ip_address,user_agent,created_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (visitor_id, action, page_value, detail_json, client_host, user_agent, now),
+        )
+
+def load_mitre_techniques() -> dict:
+    now = time.time()
+    cached = _mitre_cache.get("payload")
+    if cached and _mitre_cache.get("expires", 0) > now:
+        return cached
+    request = urllib.request.Request(
+        MITRE_ENTERPRISE_STIX_URL,
+        headers={"User-Agent": "Multi-Agent-SOC-MITRE-Catalog/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=25) as response:
+        raw = response.read(8 * 1024 * 1024)
+    bundle = json.loads(raw.decode("utf-8"))
+    techniques = []
+    for item in bundle.get("objects", []):
+        if item.get("type") != "attack-pattern" or item.get("revoked") or item.get("x_mitre_deprecated"):
+            continue
+        external_id = None
+        for ref in item.get("external_references", []):
+            if ref.get("source_name") == "mitre-attack":
+                external_id = ref.get("external_id")
+                break
+        if not external_id:
+            continue
+        attack_path = external_id.replace(".", "/")
+        techniques.append({
+            "id": external_id,
+            "name": item.get("name", ""),
+            "description": str(item.get("description", "")).strip(),
+            "type": "sub-technique" if "." in external_id else "technique",
+            "parent_id": external_id.split(".", 1)[0] if "." in external_id else None,
+            "tactics": [str(p.get("phase_name", "")).replace("-", " ").title() for p in item.get("kill_chain_phases", []) if p.get("phase_name")],
+            "platforms": item.get("x_mitre_platforms", []) or [],
+            "url": f"https://attack.mitre.org/techniques/{attack_path}/",
+        })
+    techniques.sort(key=lambda row: row["id"])
+    payload = {
+        "version": "19.2",
+        "released": "2026-08-05",
+        "source": MITRE_ENTERPRISE_URL,
+        "source_data": MITRE_ENTERPRISE_STIX_URL,
+        "count": len(techniques),
+        "techniques": techniques,
+    }
+    _mitre_cache["payload"] = payload
+    _mitre_cache["expires"] = now + MITRE_CACHE_TTL
+    return payload
 
 def safe_public_url(url: str) -> None:
     parsed = urlparse(url)
@@ -509,7 +661,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.8.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.9.0"}
 
 
 @app.get("/ready")
@@ -846,9 +998,126 @@ def inspect_public_url(url: str) -> dict:
 @app.post("/api/public/security-test")
 def public_security_test(target: MonitorTarget, request: Request):
     # Public test is intentionally one-time and non-persistent.
-    client_host = request.client.host if request.client else "anonymous"
+    client_host = _public_client_host(request)
     rate_limit(f"public-test:{client_host}", PUBLIC_TEST_RATE_LIMIT, PUBLIC_TEST_RATE_WINDOW)
-    return inspect_public_url(str(target.url))
+    result = inspect_public_url(str(target.url))
+    visitor_id = request.headers.get("x-visitor-id")
+    if visitor_id:
+        action = "web_test_completed" if result.get("status") in {"up", "degraded"} else "web_test_failed"
+        record_public_activity(
+            visitor_id,
+            action,
+            request,
+            page="/public.html",
+            detail={
+                "target": str(target.url),
+                "status": result.get("status"),
+                "status_code": result.get("status_code"),
+                "response_ms": result.get("response_ms"),
+                "finding_count": len(result.get("findings") or []),
+            },
+        )
+    return result
+
+
+@app.post("/api/public/telemetry")
+def public_telemetry(payload: PublicTelemetry, request: Request):
+    client_host = _public_client_host(request)
+    rate_limit(f"public-telemetry:{client_host}", PUBLIC_TELEMETRY_RATE_LIMIT, PUBLIC_TELEMETRY_RATE_WINDOW)
+    record_public_activity(payload.visitor_id, payload.action, request, payload.page, payload.detail)
+    return {"ok": True, "visitor_id": payload.visitor_id, "server_time": iso_now()}
+
+
+@app.get("/api/public/mitre/techniques")
+def public_mitre_techniques(request: Request):
+    client_host = _public_client_host(request)
+    rate_limit(f"public-mitre:{client_host}", PUBLIC_MITRE_RATE_LIMIT, PUBLIC_MITRE_RATE_WINDOW)
+    try:
+        return load_mitre_techniques()
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=503, detail=f"MITRE ATT&CK catalog temporarily unavailable: {exc}")
+
+
+@app.get("/api/admin/public/summary")
+def admin_public_summary(x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin"})
+    with db() as connection:
+        visitor_rows = connection.execute(
+            "SELECT * FROM public_visitors ORDER BY last_seen DESC LIMIT 500"
+        ).fetchall()
+        today_start = datetime.now(timezone.utc).date().isoformat() + "T00:00:00+00:00"
+        activity_today = connection.execute(
+            "SELECT COUNT(*) AS count FROM public_activity WHERE created_at >= ?",
+            (today_start,),
+        ).fetchone()["count"]
+        tests_today = connection.execute(
+            """SELECT COUNT(*) AS count FROM public_activity
+               WHERE created_at >= ?
+               AND action IN ('attack_test','web_test_completed','web_test_failed')""",
+            (today_start,),
+        ).fetchone()["count"]
+        page_views_today = connection.execute(
+            "SELECT COUNT(*) AS count FROM public_activity WHERE created_at >= ? AND action='page_view'",
+            (today_start,),
+        ).fetchone()["count"]
+    now = datetime.now(timezone.utc)
+    active = 0
+    for row in visitor_rows:
+        try:
+            last_seen = datetime.fromisoformat(row["last_seen"])
+            if now - last_seen <= timedelta(seconds=75):
+                active += 1
+        except (TypeError, ValueError):
+            pass
+    return {
+        "active_now": active,
+        "visitors_total": len(visitor_rows),
+        "events_today": activity_today,
+        "tests_today": tests_today,
+        "page_views_today": page_views_today,
+    }
+
+
+@app.get("/api/admin/public/visitors")
+def admin_public_visitors(limit: int = 100, x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin"})
+    limit = max(1, min(limit, 200))
+    with db() as connection:
+        rows = connection.execute(
+            "SELECT * FROM public_visitors ORDER BY last_seen DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    now = datetime.now(timezone.utc)
+    output = []
+    for row in rows:
+        item = dict(row)
+        try:
+            last_seen = datetime.fromisoformat(item["last_seen"])
+            item["active"] = (now - last_seen) <= timedelta(seconds=75)
+        except (TypeError, ValueError):
+            item["active"] = False
+        output.append(item)
+    return output
+
+
+@app.get("/api/admin/public/activity")
+def admin_public_activity(limit: int = 200, x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin"})
+    limit = max(1, min(limit, 500))
+    with db() as connection:
+        rows = connection.execute(
+            "SELECT id,visitor_id,action,page,detail,ip_address,user_agent,created_at FROM public_activity ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    output = []
+    for row in rows:
+        item = dict(row)
+        try:
+            item["detail"] = json.loads(item["detail"]) if item["detail"] else {}
+        except (TypeError, json.JSONDecodeError):
+            item["detail"] = {}
+        output.append(item)
+    return output
 
 
 @app.get("/api/monitor/targets")
