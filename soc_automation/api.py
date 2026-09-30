@@ -250,18 +250,20 @@ def authenticate(x_api_key: str | None) -> tuple[str, str]:
     if x_api_key:
         digest = hash_api_key(x_api_key)
         with db() as connection:
-            rows = connection.execute("SELECT key_id, role, key_hash, name FROM api_keys WHERE revoked_at IS NULL").fetchall()
-        for row in rows:
+            rows = connection.execute(
+                "SELECT key_id, role, key_hash, name FROM api_keys WHERE revoked_at IS NULL"
+            ).fetchall()
+            for row in rows:
                 if hmac.compare_digest(digest, row["key_hash"]):
-                actor = row["name"].removeprefix("session:")
-                if row["name"].startswith("session:"):
-                    user_row = connection.execute(
-                        "SELECT revoked_at FROM users WHERE username=?",
-                        (actor,),
-                    ).fetchone()
-                    if not user_row or user_row["revoked_at"]:
-                        continue
-                return actor or row["key_id"], row["role"]
+                    actor = row["name"].removeprefix("session:")
+                    if row["name"].startswith("session:"):
+                        user_row = connection.execute(
+                            "SELECT revoked_at FROM users WHERE username=?",
+                            (actor,),
+                        ).fetchone()
+                        if not user_row or user_row["revoked_at"]:
+                            continue
+                    return actor or row["key_id"], row["role"]
     raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
