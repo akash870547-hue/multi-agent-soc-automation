@@ -105,9 +105,30 @@
 </section>
 
 <section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+  <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div>
+      <div class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">Simulation controls</div>
+      <h2 class="mt-1 text-xl font-bold">Launch a safe attack workflow</h2>
+      <p class="mt-1 text-xs leading-5 text-slate-500">Select a synthetic attack profile and watch the multi-agent pipeline progress through each stage.</p>
+    </div>
+    <div class="flex flex-col gap-2 sm:flex-row">
+      <select id="attackType" class="min-w-[260px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm"></select>
+      <button id="runDemoBtn" onclick="runFullDemo()" class="rounded-lg bg-sky-500 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Run workflow</button>
+      <button onclick="resetDemo()" class="rounded-lg border border-slate-700 px-4 py-3 text-sm hover:bg-slate-800">Reset</button>
+    </div>
+  </div>
+  <div class="mt-4 grid gap-3 sm:grid-cols-4">
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">Participant</div><div id="demoParticipant" class="mt-1 font-semibold">-</div></div>
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">Attack</div><div id="demoAttack" class="mt-1 font-semibold">-</div></div>
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">MITRE</div><div id="demoMitre" class="mt-1 font-semibold">-</div></div>
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-xs text-slate-500">Status</div><div id="demoStatus" class="mt-1 font-semibold">Ready</div></div>
+  </div>
+</section>
+
+<section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div><div class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">SOC Decision Map</div><h2 class="mt-1 text-2xl font-bold">Follow the incident from signal to response</h2><p class="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Click a node to inspect that stage. As the simulation runs, completed stages stay on the map and their attack-specific evidence remains available.</p></div>
-    <div class="flex flex-wrap gap-2 text-[11px] text-slate-500"><span class="rounded-full border border-slate-700 px-2 py-1">Click to inspect</span><span class="rounded-full border border-slate-700 px-2 py-1">State stays visible</span><span class="rounded-full border border-slate-700 px-2 py-1">Human gate</span></div>
+    <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500"><span class="rounded-full border border-slate-700 px-2 py-1">Click to inspect</span><span class="rounded-full border border-slate-700 px-2 py-1">State stays visible</span><span class="rounded-full border border-slate-700 px-2 py-1">Human gate</span><span class="rounded-full border border-sky-500/30 px-2 py-1 text-sky-300">Progress <span id="workflowProgress" class="ml-1 font-semibold">0 / 10</span></span></div>
   </div>
   <div id="workflowTimeline" class="mt-6">
     <div id="workflowTree" class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 sm:p-6"></div>
@@ -177,8 +198,9 @@
 const API_BASE="https://multi-agent-soc-api.onrender.com";
 const VISITOR_KEY="soc_public_visitor_id";
 const NAME_KEY="soc_public_participant_name";
-const VISITOR_ID=localStorage.getItem(VISITOR_KEY) || ("pub_"+crypto.randomUUID());
-localStorage.setItem(VISITOR_KEY,VISITOR_ID);
+let VISITOR_ID="";
+try{VISITOR_ID=localStorage.getItem(VISITOR_KEY)||("pub_"+(crypto.randomUUID?.()||Date.now().toString(36)));
+localStorage.setItem(VISITOR_KEY,VISITOR_ID);}catch(e){VISITOR_ID="pub_"+Date.now().toString(36);}
 
 const attackProfiles={
  sql:{key:"sql",title:"SQL Injection",severity:"HIGH",id:"T1190",name:"Exploit Public-Facing Application",tactic:"Initial Access",detection:"Suspicious SQL injection payload targeting a public-facing application.",asset:"Customer-facing web application",ioc:["Source IP: simulated-source","Request path: /login","Payload marker: UNION SELECT"],correlation:"Multiple requests from the same source IP targeted database-backed endpoints within a short window.",investigation:"Review WAF logs, application logs and database audit records. Validate whether authentication or sensitive records were accessed.",reasoning:"The source repeatedly targeted a public-facing application using a database-oriented injection pattern. The evidence supports a high-priority web exploitation investigation.",response:"Block the source at the edge, preserve application/database evidence, validate affected endpoints and rotate exposed application secrets if compromise is confirmed.",impact:"Potential unauthorized database access or data exposure."},
@@ -194,7 +216,8 @@ const attackProfiles={
 };
 
 const attackOptions=Object.values(attackProfiles);
-const attackSelect=document.getElementById("attackType");
+const attackSelect=document.getElementById("attackType") || document.createElement("select");
+if(!attackSelect.isConnected)document.body.appendChild(attackSelect);
 attackSelect.innerHTML=attackOptions.map(p=>'<option value="'+p.key+'">'+escapeHtml(p.title)+' • '+escapeHtml(p.id)+'</option>').join("");
 
 const stageDefinitions=[
@@ -387,10 +410,11 @@ function renderTimeline(){
 }
 function updateSummary(){
  const p=demo.profile||currentProfile();
- document.getElementById("demoParticipant").textContent=participantName||"Not entered";
- document.getElementById("demoAttack").textContent=p.title;
- document.getElementById("demoMitre").textContent=p.id+" • "+p.name;
- document.getElementById("demoStatus").textContent=demo.completed>=stageDefinitions.length-1?"Workflow complete":demo.running?"Running":"Ready";
+ const a=document.getElementById("demoParticipant"),b=document.getElementById("demoAttack"),m=document.getElementById("demoMitre"),s=document.getElementById("demoStatus");
+ if(a)a.textContent=participantName||"Not entered";
+ if(b)b.textContent=p.title;
+ if(m)m.textContent=p.id+" • "+p.name;
+ if(s)s.textContent=demo.completed>=stageDefinitions.length-1?"Workflow complete":demo.running?"Running":"Ready";
 }
 
 function runFullDemo(){
