@@ -3,7 +3,11 @@ services:
     name: multi-agent-soc-api
     runtime: docker
     healthCheckPath: /ready
-    plan: free
+    plan: starter
+    disk:
+      name: soc-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: SOC_DB_PATH
         value: /data/soc_automation.db
