@@ -1,0 +1,12 @@
+[
+  {"event_id":"EXP-001","source":"web-gateway","event_type":"web_attack","source_ip":"203.0.113.10","message":"SQL injection detected against public application","label":"malicious"},
+  {"event_id":"EXP-002","source":"auth","event_type":"authentication","source_ip":"203.0.113.11","username":"admin","message":"failed login attempt","label":"malicious"},
+  {"event_id":"EXP-003","source":"endpoint","event_type":"malware","source_ip":"203.0.113.12","message":"ransomware activity detected","label":"malicious"},
+  {"event_id":"EXP-004","source":"firewall","event_type":"network","source_ip":"203.0.113.13","message":"Normal DNS request allowed","label":"benign"},
+  {"event_id":"EXP-005","source":"web-gateway","event_type":"web_attack","source_ip":"203.0.113.14","message":"SQL injection payload blocked","label":"malicious"},
+  {"event_id":"EXP-006","source":"endpoint","event_type":"process","source_ip":"203.0.113.15","message":"Normal application startup completed","label":"benign"},
+  {"event_id":"EXP-007","source":"auth","event_type":"authentication","source_ip":"203.0.113.16","username":"service","message":"failed login attempt","label":"malicious"},
+  {"event_id":"EXP-008","source":"firewall","event_type":"network","source_ip":"203.0.113.17","message":"Normal outbound HTTPS connection","label":"benign"},
+  {"event_id":"EXP-009","source":"endpoint","event_type":"malware","source_ip":"203.0.113.18","message":"malware detected on workstation","label":"malicious"},
+  {"event_id":"EXP-010","source":"web-gateway","event_type":"http","source_ip":"203.0.113.19","message":"Normal HTTP request completed","label":"benign"}
+]
