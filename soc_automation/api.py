@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import base64
 import ipaddress
 import json
 import os
@@ -64,6 +65,16 @@ class ApiKeyCreate(BaseModel):
     name: str
 
 
+class UserGenerate(BaseModel):
+    role: str
+    username: str | None = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 def db():
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
@@ -72,6 +83,45 @@ def db():
 
 def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+PASSWORD_ITERATIONS = 310000
+ALLOWED_USER_ROLES = {"admin", "analyst"}
+RESERVED_USER_ROLES = {"super_admin"}
+
+
+def hash_password(password: str) -> str:
+    if len(password) < 12:
+        raise HTTPException(status_code=400, detail="Password must be at least 12 characters")
+    salt = os.urandom(16)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS, dklen=32)
+    return "pbkdf2_sha256$" + str(PASSWORD_ITERATIONS) + "$" +         base64.urlsafe_b64encode(salt).decode().rstrip("=") + "$" +         base64.urlsafe_b64encode(derived).decode().rstrip("=")
+
+
+def verify_password(password: str, encoded: str) -> bool:
+    try:
+        scheme, iterations, salt_b64, digest_b64 = encoded.split("$", 3)
+        if scheme != "pbkdf2_sha256":
+            return False
+        salt = base64.urlsafe_b64decode(salt_b64 + "=" * (-len(salt_b64) % 4))
+        expected = base64.urlsafe_b64decode(digest_b64 + "=" * (-len(digest_b64) % 4))
+        derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, int(iterations), dklen=len(expected))
+        return hmac.compare_digest(derived, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+def ensure_bootstrap_admin(connection: sqlite3.Connection) -> None:
+    username = os.getenv("SOC_BOOTSTRAP_ADMIN_USERNAME", "").strip()
+    password_hash = os.getenv("SOC_BOOTSTRAP_ADMIN_PASSWORD_HASH", "").strip()
+    if not username or not password_hash:
+        return
+    row = connection.execute("SELECT user_id FROM users WHERE username=?", (username,)).fetchone()
+    if row:
+        return
+    connection.execute(
+        "INSERT INTO users(user_id,username,role,password_hash,created_at) VALUES (?,?,?,?,?)",
+        ("usr_" + secrets.token_hex(8), username, "admin", password_hash, iso_now()),
+    )
 
 
 def init_db():
@@ -86,6 +136,10 @@ def init_db():
         connection.execute("""CREATE TABLE IF NOT EXISTS api_keys (
             key_id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL,
             key_hash TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE,
+            role TEXT NOT NULL, password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL, revoked_at TEXT)""")
         connection.execute("""CREATE TABLE IF NOT EXISTS monitor_targets (
             target_id TEXT PRIMARY KEY, url TEXT NOT NULL UNIQUE, name TEXT,
             status TEXT NOT NULL, status_code INTEGER, response_ms REAL,
@@ -113,6 +167,7 @@ def init_db():
             status_code INTEGER,
             response_ms REAL,
             findings TEXT NOT NULL)""")
+        ensure_bootstrap_admin(connection)
 
 
 init_db()
