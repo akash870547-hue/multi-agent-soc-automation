@@ -75,15 +75,59 @@ body.theme-graphite header{background:rgba(17,17,17,.96)!important}
 
 <section class="mt-6 grid gap-6 lg:grid-cols-3">
 <div class="rounded-xl border border-slate-800 bg-slate-900 p-6 lg:col-span-2">
-  <div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Website Security Monitoring</h2><p class="mt-1 text-xs text-slate-500">Continuous HTTPS availability, TLS certificate, security headers, redirect, content-change and check-history monitoring.</p></div><span id="monitorCount" class="text-xs text-slate-400">0 targets</span></div>
-  <div class="mt-4 flex gap-2"><input id="monitorUrl" class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="https://example.com"><input id="monitorName" class="w-40 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm" placeholder="Target name"><button id="addMonitorBtn" onclick="addMonitor()" class="rounded-lg bg-sky-500 px-4 text-sm font-semibold text-slate-950">Add</button></div>
-  <div id="monitorTargets" class="mt-4 space-y-3"></div>
-  <div id="monitorHistory" class="mt-4 hidden rounded-lg border border-slate-800 bg-slate-950 p-4"></div>
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <div class="flex items-center gap-2"><h2 class="text-lg font-semibold">Website Security Monitoring</h2><span class="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-emerald-300">Backend monitored</span></div>
+      <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Continuous HTTPS availability, DNS, TLS certificate posture, response metadata, security headers, redirects, content integrity, page metadata, findings and check history.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="monitorAutoState" class="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] text-slate-400">Auto-check enabled</span>
+      <span id="monitorCount" class="text-xs text-slate-400">0 targets</span>
+    </div>
+  </div>
+  <div class="mt-5 grid gap-3 sm:grid-cols-4">
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase tracking-[0.16em] text-slate-500">Monitored</div><div id="mon-total" class="mt-1 text-2xl font-bold">0</div></div>
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase tracking-[0.16em] text-slate-500">Healthy</div><div id="mon-up" class="mt-1 text-2xl font-bold text-emerald-400">0</div></div>
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attention</div><div id="mon-attention" class="mt-1 text-2xl font-bold text-amber-300">0</div></div>
+    <div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase tracking-[0.16em] text-slate-500">Down</div><div id="mon-down" class="mt-1 text-2xl font-bold text-red-400">0</div></div>
+  </div>
+  <div class="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
+    <div class="flex flex-col gap-3 sm:flex-row">
+      <input id="monitorUrl" class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm" placeholder="https://example.com">
+      <input id="monitorName" class="sm:w-52 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm" placeholder="Target name">
+      <button id="addMonitorBtn" onclick="addMonitor()" class="rounded-lg bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-400">Add target</button>
+    </div>
+    <div class="mt-2 text-[11px] leading-5 text-slate-500">HTTPS targets only. The monitor performs passive public-facing checks and does not crawl authenticated areas or execute active exploitation.</div>
+  </div>
+  <div class="mt-5 flex items-center justify-between gap-3">
+    <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Target inventory</div>
+    <button onclick="checkAllMonitors()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Check all now</button>
+  </div>
+  <div id="monitorTargets" class="mt-3 space-y-3"></div>
+  <div id="monitorHistory" class="mt-4 hidden rounded-xl border border-slate-800 bg-slate-950 p-4"></div>
 </div>
-<div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-  <h2 class="text-lg font-semibold">Access Control</h2>
-  <div id="roleBadge" class="mt-3 inline-flex rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">Not authenticated</div>
-  <div class="mt-4 space-y-2 text-sm"><div class="flex justify-between"><span>Ingest events</span><span id="permIngest">-</span></div><div class="flex justify-between"><span>Acknowledge</span><span id="permAck">-</span></div><div class="flex justify-between"><span>Approve response</span><span id="permApprove">-</span></div><div class="flex justify-between"><span>Resolve</span><span id="permResolve">-</span></div><div class="flex justify-between"><span>Website admin</span><span id="permMonitor">-</span></div><div class="flex justify-between"><span>Audit logs</span><span id="permAudit">-</span></div></div>
+<div class="space-y-6">
+  <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+    <h2 class="text-lg font-semibold">Monitoring posture</h2>
+    <p class="mt-1 text-xs leading-5 text-slate-500">Operational view of availability and certificate exposure for your monitored targets.</p>
+    <div class="mt-4 space-y-2 text-xs">
+      <div class="flex items-center justify-between rounded-lg bg-slate-950 p-3"><span class="text-slate-500">TLS expiry ≤ 30 days</span><span id="mon-expiring" class="font-semibold text-amber-300">0</span></div>
+      <div class="flex items-center justify-between rounded-lg bg-slate-950 p-3"><span class="text-slate-500">Targets needing review</span><span id="mon-review" class="font-semibold text-amber-300">0</span></div>
+      <div class="flex items-center justify-between rounded-lg bg-slate-950 p-3"><span class="text-slate-500">Backend interval</span><span class="font-semibold">5 min</span></div>
+    </div>
+    <div class="mt-4 rounded-lg border border-sky-500/15 bg-sky-500/5 p-3 text-xs leading-5 text-sky-200">Changes in availability, certificate posture, security headers, redirects or content hash are fed into the SOC event pipeline.</div>
+  </div>
+  <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
+    <h2 class="text-lg font-semibold">Access Control</h2>
+    <div id="roleBadge" class="mt-3 inline-flex rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">Not authenticated</div>
+    <div class="mt-4 space-y-2 text-sm"><div class="flex justify-between"><span>Ingest events</span><span id="permIngest">-</span></div><div class="flex justify-between"><span>Acknowledge</span><span id="permAck">-</span></div><div class="flex justify-between"><span>Approve response</span><span id="permApprove">-</span></div><div class="flex justify-between"><span>Resolve</span><span id="permResolve">-</span></div><div class="flex justify-between"><span>Website monitoring</span><span id="permMonitor">-</span></div><div class="flex justify-between"><span>Audit logs</span><span id="permAudit">-</span></div></div>
+  </div>
+</div>
+<div id="monitorDetailsModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 p-4 backdrop-blur-sm">
+  <div class="mx-auto mt-8 max-h-[88vh] max-w-5xl overflow-auto rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+    <div class="flex items-start justify-between gap-4"><div><div class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">Website Intelligence</div><h3 id="monitorModalTitle" class="mt-1 text-xl font-semibold">Target details</h3><div id="monitorModalUrl" class="mt-1 break-all text-xs text-slate-500"></div></div><button onclick="closeMonitorDetails()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-800">Close</button></div>
+    <div id="monitorModalBody" class="mt-5"></div>
+  </div>
 </div>
 </section>
 <section id="adminConsole" class="mt-6 hidden rounded-xl border border-amber-500/20 bg-slate-900 p-6">
@@ -246,80 +290,96 @@ async function loadMe(){
   loadMonitorTargets();
  }catch(e){}
 }
-async function loadMonitorTargets(){
- if(!API_BASE)return;
- try{
-  const r=await fetch(API_BASE+"/api/monitor/targets",{headers:{...API_HEADERS()}});
-  if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(apiErrorMessage(d,r.status));}
-  const rows=await r.json();
-  document.getElementById("monitorCount").textContent=rows.length+" target"+(rows.length===1?"":"s");
+
+let monitorCache=[];
+let monitorRefreshTimer=null;
+function monitorEsc(value){return esc(value==null?"":value);}
+function monitorDate(value){return value?new Date(value).toLocaleString():"Never";}
+function monitorStatusClass(status){
+  if(status==="up")return "border-emerald-500/20 bg-emerald-500/5 text-emerald-300";
+  if(status==="down")return "border-red-500/20 bg-red-500/5 text-red-300";
+  if(status==="degraded")return "border-amber-500/20 bg-amber-500/5 text-amber-300";
+  return "border-slate-700 bg-slate-950 text-slate-400";
+}
+function monitorPosture(row){
+  const score=row.posture?.score ?? Math.max(0,100-((row.findings||[]).length*8));
+  const risk=row.posture?.risk || (score>=85?"low":score>=65?"moderate":score>=40?"high":"critical");
+  return {score:score,risk:risk};
+}
+function renderMonitorSummary(summary){
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set("mon-total",summary?.total??0);set("mon-up",summary?.up??0);set("mon-attention",summary?.attention??0);set("mon-down",summary?.down??0);set("mon-expiring",summary?.certificates_expiring_30d??0);set("mon-review",summary?.attention??0);
+}
+function renderMonitorTargets(rows){
+  monitorCache=rows||[];
   const canRemove=["admin","responder","analyst"].includes(window.socRole);
-  document.getElementById("monitorTargets").innerHTML=rows.length?rows.map(x=>{
-    const tls=x.tls||{}, missing=x.missing_security_headers||[], findings=x.findings||[];
-    const statusClass=x.status==="up"?"bg-emerald-500/10 text-emerald-400":x.status==="down"?"bg-red-500/10 text-red-400":"bg-amber-500/10 text-amber-400";
-    const tlsText=tls.valid?(tls.days_to_expiry==null?"TLS valid":("TLS "+tls.days_to_expiry+"d")):"TLS error";
-    return `<div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0"><div class="font-medium truncate">${esc(x.name||x.url)}</div><div class="text-xs text-slate-500 break-all">${esc(x.url)}</div></div>
-        <span class="rounded-full px-3 py-1 text-xs ${statusClass}">${esc((x.status||"unknown").toUpperCase())}</span>
-      </div>
-      <div class="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">HTTP</span><div class="mt-1">${x.status_code??"N/A"}</div></div>
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">Response</span><div class="mt-1">${x.response_ms==null?"N/A":x.response_ms+" ms"}</div></div>
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">TLS</span><div class="mt-1">${esc(tlsText)}</div></div>
-        <div class="rounded bg-slate-900 p-2"><span class="text-slate-500">Headers</span><div class="mt-1">${missing.length} missing</div></div>
-      </div>
-      <div class="mt-2 text-xs text-slate-500">Last checked: ${x.last_checked?new Date(x.last_checked).toLocaleString():"never"} • Content: ${x.content_hash?esc(x.content_hash.slice(0,12))+"…":"N/A"}</div>
-      ${findings.length?`<div class="mt-3 rounded border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">${findings.slice(0,4).map(v=>"<div>• "+esc(v)+"</div>").join("")}</div>`:""}
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button onclick="checkMonitor('${esc(x.target_id)}')" class="rounded-lg border border-slate-700 px-3 py-1 text-xs">Check Now</button>
-        <button onclick="loadMonitorHistory('${esc(x.target_id)}','${esc(x.name||x.url)}')" class="rounded-lg border border-slate-700 px-3 py-1 text-xs">History</button>
-        ${canRemove?`<button onclick="deleteMonitor('${esc(x.target_id)}')" class="rounded-lg border border-red-500/30 px-3 py-1 text-xs text-red-300">Remove</button>`:""}
-      </div>
-    </div>`;
-  }).join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500">No monitored websites yet.</div>';
- }catch(e){document.getElementById("monitorTargets").innerHTML='<div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-200">Website monitoring backend error: '+esc(e.message||"API error")+'</div>';}
+  document.getElementById("monitorCount").textContent=monitorCache.length+" target"+(monitorCache.length===1?"":"s");
+  const el=document.getElementById("monitorTargets");
+  if(!monitorCache.length){el.innerHTML='<div class="rounded-xl border border-dashed border-slate-800 p-8 text-center"><div class="text-sm font-semibold">No monitoring targets</div><div class="mt-1 text-xs text-slate-500">Add a public HTTPS website above to start continuous monitoring.</div></div>';return;}
+  el.innerHTML=monitorCache.map(function(x){
+    const posture=monitorPosture(x),tls=x.tls||{},findings=x.findings||[],dns=x.dns_info||x.dns||{},meta=x.response_metadata||{},page=x.page_metadata||{};
+    const statusClass=monitorStatusClass(x.status),tlsText=tls.valid?(tls.days_to_expiry==null?"TLS valid":"TLS "+tls.days_to_expiry+"d"):"TLS unavailable";
+    let html='<div class="rounded-xl border border-slate-800 bg-slate-950 p-4">';
+    html+='<div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div class="min-w-0"><div class="flex items-center gap-2"><div class="truncate font-semibold">'+monitorEsc(page.title||x.name||x.url)+'</div><span class="rounded-full border px-2 py-0.5 text-[10px] font-semibold '+statusClass+'">'+monitorEsc((x.status||"unknown").toUpperCase())+'</span></div><div class="mt-1 break-all text-xs text-slate-500">'+monitorEsc(x.url)+'</div><div class="mt-1 text-[11px] text-slate-600">Last checked '+monitorDate(x.last_checked)+'</div></div><div class="text-right"><div class="text-[10px] uppercase tracking-[0.16em] text-slate-500">Posture</div><div class="text-lg font-bold '+(posture.score>=85?"text-emerald-300":posture.score>=65?"text-amber-300":"text-red-300")+'">'+posture.score+'</div></div></div>';
+    html+='<div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">';
+    html+='<div class="rounded-lg bg-slate-900 p-2.5"><div class="text-[10px] text-slate-500">HTTP</div><div class="mt-1 text-sm font-semibold">'+(x.status_code??"N/A")+'</div></div>';
+    html+='<div class="rounded-lg bg-slate-900 p-2.5"><div class="text-[10px] text-slate-500">Response</div><div class="mt-1 text-sm font-semibold">'+(x.response_ms==null?"N/A":x.response_ms+" ms")+'</div></div>';
+    html+='<div class="rounded-lg bg-slate-900 p-2.5"><div class="text-[10px] text-slate-500">TLS</div><div class="mt-1 text-sm font-semibold">'+monitorEsc(tlsText)+'</div></div>';
+    html+='<div class="rounded-lg bg-slate-900 p-2.5"><div class="text-[10px] text-slate-500">Headers</div><div class="mt-1 text-sm font-semibold">'+((x.missing_security_headers||[]).length)+' missing</div></div>';
+    html+='<div class="rounded-lg bg-slate-900 p-2.5"><div class="text-[10px] text-slate-500">Findings</div><div class="mt-1 text-sm font-semibold">'+findings.length+'</div></div></div>';
+    html+='<div class="mt-3 grid gap-2 text-[11px] text-slate-500 sm:grid-cols-3"><div>Title: <span class="text-slate-300">'+monitorEsc(page.title||"Not detected")+'</span></div><div>Server: <span class="text-slate-300">'+monitorEsc(meta.server||"Not disclosed")+'</span></div><div>DNS A: <span class="text-slate-300">'+monitorEsc((dns.A||[]).slice(0,2).join(", ")||"None")+'</span></div></div>';
+    if(findings.length)html+='<div class="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">'+findings.slice(0,3).map(function(v){return "<div>• "+monitorEsc(v)+"</div>";}).join("")+'</div>';
+    html+='<div class="mt-3 flex flex-wrap gap-2"><button onclick="checkMonitor(\''+monitorEsc(x.target_id)+'\')" class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs">Check</button><button onclick="showMonitorDetails(\''+monitorEsc(x.target_id)+'\')" class="rounded-lg border border-sky-500/30 px-3 py-1.5 text-xs text-sky-300">Details</button><button onclick="loadMonitorHistory(\''+monitorEsc(x.target_id)+'\',\''+monitorEsc(x.name||x.url)+'\')" class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs">History</button>';
+    if(canRemove)html+='<button onclick="deleteMonitor(\''+monitorEsc(x.target_id)+'\')" class="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs text-red-300">Remove</button>';
+    html+='</div></div>';return html;
+  }).join("");
+}
+async function loadMonitorSummary(){
+  try{const r=await fetch(API_BASE+"/api/monitor/summary",{headers:{...API_HEADERS()}}),d=await r.json().catch(function(){return {};});if(!r.ok)throw new Error(apiErrorMessage(d,r.status));renderMonitorSummary(d);}catch(e){}
+}
+async function loadMonitorTargets(){
+  if(!API_BASE)return;
+  try{const r=await fetch(API_BASE+"/api/monitor/targets",{headers:{...API_HEADERS()}}),d=await r.json().catch(function(){return {};});if(!r.ok)throw new Error(apiErrorMessage(d,r.status));renderMonitorTargets(d);await loadMonitorSummary();if(!monitorRefreshTimer)monitorRefreshTimer=setInterval(loadMonitorTargets,60000);}
+  catch(e){document.getElementById("monitorTargets").innerHTML='<div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-200">Website monitoring backend error: '+monitorEsc(e.message||"API error")+'</div>';}
+}
+function showMonitorDetails(id){
+  const x=monitorCache.find(function(row){return row.target_id===id;});if(!x)return;
+  const tls=x.tls||{},dns=x.dns_info||x.dns||{},meta=x.response_metadata||{},page=x.page_metadata||{},posture=monitorPosture(x);
+  document.getElementById("monitorModalTitle").textContent=x.name||x.url;document.getElementById("monitorModalUrl").textContent=x.url;
+  let html='<div class="grid gap-3 sm:grid-cols-4"><div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase text-slate-500">Status</div><div class="mt-1 font-semibold">'+monitorEsc((x.status||"unknown").toUpperCase())+'</div></div><div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase text-slate-500">Posture</div><div class="mt-1 font-semibold">'+posture.score+' · '+monitorEsc(posture.risk)+'</div></div><div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase text-slate-500">HTTP</div><div class="mt-1 font-semibold">'+(x.status_code??"N/A")+' · '+(x.response_ms??"N/A")+' ms</div></div><div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase text-slate-500">Content SHA-256</div><div class="mt-1 break-all text-xs">'+monitorEsc(x.content_hash||"N/A")+'</div></div></div>';
+  html+='<div class="mt-4 grid gap-4 lg:grid-cols-2"><div class="rounded-xl border border-slate-800 p-4"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">TLS certificate</div><div class="mt-3 space-y-2 text-xs"><div>Version: '+monitorEsc(tls.tls_version||"N/A")+'</div><div>Cipher: '+monitorEsc(tls.cipher||"N/A")+'</div><div>Issuer: '+monitorEsc(tls.issuer?.commonName||tls.issuer?.organizationName||"N/A")+'</div><div>Expires: '+monitorDate(tls.expires_at)+'</div><div>Days remaining: '+(tls.days_to_expiry??"N/A")+'</div><div>Serial: '+monitorEsc(tls.serial_number||"N/A")+'</div><div>SANs: '+monitorEsc((tls.subject_alt_names||[]).join(", ")||"N/A")+'</div></div></div><div class="rounded-xl border border-slate-800 p-4"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">DNS & page metadata</div><div class="mt-3 space-y-2 text-xs"><div>A: '+monitorEsc((dns.A||[]).join(", ")||"None")+'</div><div>AAAA: '+monitorEsc((dns.AAAA||[]).join(", ")||"None")+'</div><div>CNAME: '+monitorEsc((dns.CNAME||[]).join(", ")||"None")+'</div><div>Title: '+monitorEsc(page.title||"N/A")+'</div><div>Description: '+monitorEsc(page.description||"N/A")+'</div><div>Canonical: '+monitorEsc(page.canonical||"N/A")+'</div><div>Language: '+monitorEsc(page.language||"N/A")+'</div></div></div></div>';
+  html+='<div class="mt-4 rounded-xl border border-slate-800 p-4"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Response metadata</div><div class="mt-3 grid gap-2 text-xs sm:grid-cols-2"><div>Content type: '+monitorEsc(meta.content_type||"N/A")+'</div><div>Size: '+(meta.content_length_bytes??0)+' bytes</div><div>Server: '+monitorEsc(meta.server||"Not disclosed")+'</div><div>X-Powered-By: '+monitorEsc(meta.powered_by||"Not disclosed")+'</div><div>ETag: '+monitorEsc(meta.etag||"N/A")+'</div><div>Last-Modified: '+monitorEsc(meta.last_modified||"N/A")+'</div><div>Cache-Control: '+monitorEsc(meta.cache_control||"N/A")+'</div><div>Final URL: '+monitorEsc(x.final_url||x.url)+'</div></div></div>';
+  const headers=Object.entries(x.security_headers||{}).map(function(pair){return '<div class="break-all py-1"><span class="text-sky-300">'+monitorEsc(pair[0])+':</span> '+monitorEsc(pair[1])+'</div>';}).join("")||'<div class="text-slate-500">No headers recorded.</div>';
+  const findings=(x.findings||[]).map(function(v){return '<div class="rounded bg-amber-500/5 p-2 text-amber-200">• '+monitorEsc(v)+'</div>';}).join("")||'<div class="text-slate-500">No current findings.</div>';
+  html+='<div class="mt-4 grid gap-4 lg:grid-cols-2"><div class="rounded-xl border border-slate-800 p-4"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Security headers</div><div class="mt-3 max-h-72 overflow-auto text-xs">'+headers+'</div></div><div class="rounded-xl border border-slate-800 p-4"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Findings</div><div class="mt-3 space-y-2">'+findings+'</div></div></div>';
+  document.getElementById("monitorModalBody").innerHTML=html;document.getElementById("monitorDetailsModal").classList.remove("hidden");
+}
+function closeMonitorDetails(){document.getElementById("monitorDetailsModal").classList.add("hidden");}
+async function checkMonitor(id){
+  try{const r=await fetch(API_BASE+"/api/monitor/targets/"+encodeURIComponent(id)+"/check",{method:"POST",headers:{...API_HEADERS()}}),d=await r.json().catch(function(){return {};});if(!r.ok)throw new Error(apiErrorMessage(d,r.status));document.getElementById("notice").textContent="Website check completed: "+(d.status||"unknown")+" • "+(d.response_ms??"N/A")+" ms";await loadMonitorTargets();showMonitorDetails(id);}
+  catch(e){document.getElementById("notice").textContent="Website check failed: "+e.message;}
+}
+async function addMonitor(){
+  if(!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API first.";return;}
+  const url=document.getElementById("monitorUrl").value.trim(),name=document.getElementById("monitorName").value.trim();if(!url){document.getElementById("notice").textContent="Enter an HTTPS website URL.";return;}
+  const btn=document.getElementById("addMonitorBtn");btn.disabled=true;btn.textContent="Checking...";
+  try{const r=await fetch(API_BASE+"/api/monitor/targets",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify({url:url,name:name||null})}),d=await r.json().catch(function(){return {};});if(!r.ok)throw new Error(apiErrorMessage(d,r.status));document.getElementById("monitorUrl").value="";document.getElementById("monitorName").value="";document.getElementById("notice").textContent="Website added and initial security snapshot collected.";await loadMonitorTargets();showMonitorDetails(d.target_id);}
+  catch(e){document.getElementById("notice").textContent="Monitor add failed: "+e.message;}finally{btn.disabled=false;btn.textContent="Add target";}
 }
 async function loadMonitorHistory(id,name){
- try{
-  const r=await fetch(API_BASE+"/api/monitor/targets/"+encodeURIComponent(id)+"/history",{headers:{...API_HEADERS()}});
-  const d=await r.json().catch(()=>[]);
-  if(!r.ok)throw new Error(apiErrorMessage(d,r.status));
-  const box=document.getElementById("monitorHistory");
-  box.classList.remove("hidden");
-  box.innerHTML="<div class='flex items-center justify-between'><div class='text-sm font-semibold'>Check History • "+esc(name)+"</div><button onclick=\"document.getElementById('monitorHistory').classList.add('hidden')\" class='text-xs text-slate-400'>Close</button></div>"+(d.length?`<div class="mt-3 space-y-2">${d.map(x=>`<div class="flex items-start justify-between rounded border border-slate-800 p-2 text-xs"><div><div>${new Date(x.checked_at).toLocaleString()} • ${esc((x.status||"unknown").toUpperCase())} • HTTP ${x.status_code??"N/A"} • ${x.response_ms??"N/A"}ms</div>${(x.findings||[]).slice(0,2).map(v=>`<div class="mt-1 text-amber-200">• ${esc(v)}</div>`).join("")}</div></div>`).join("")}</div>`:'<div class="mt-3 text-xs text-slate-500">No history yet.</div>');
- }catch(e){document.getElementById("notice").textContent="History load failed: "+e.message;}
+  try{const r=await fetch(API_BASE+"/api/monitor/targets/"+encodeURIComponent(id)+"/history",{headers:{...API_HEADERS()}}),d=await r.json().catch(function(){return []});if(!r.ok)throw new Error(apiErrorMessage(d,r.status));const box=document.getElementById("monitorHistory");box.classList.remove("hidden");let html='<div class="flex items-center justify-between"><div><div class="text-sm font-semibold">Check history</div><div class="mt-1 text-xs text-slate-500">'+monitorEsc(name)+'</div></div><button onclick="document.getElementById(\'monitorHistory\').classList.add(\'hidden\')" class="text-xs text-slate-400">Close</button></div>';if(d.length){html+='<div class="mt-3 overflow-auto"><table class="min-w-full text-left text-xs"><thead class="text-slate-500"><tr><th class="py-2 pr-4">Checked</th><th class="py-2 pr-4">Status</th><th class="py-2 pr-4">HTTP</th><th class="py-2 pr-4">Response</th><th class="py-2">Findings</th></tr></thead><tbody>'+d.map(function(x){return '<tr class="border-t border-slate-800"><td class="py-2 pr-4 whitespace-nowrap">'+monitorDate(x.checked_at)+'</td><td class="py-2 pr-4">'+monitorEsc((x.status||"unknown").toUpperCase())+'</td><td class="py-2 pr-4">'+(x.status_code??"N/A")+'</td><td class="py-2 pr-4">'+(x.response_ms??"N/A")+' ms</td><td class="py-2">'+monitorEsc((x.findings||[]).slice(0,2).join(" • ")||"No findings")+'</td></tr>';}).join("")+'</tbody></table></div>';}else html+='<div class="mt-4 text-xs text-slate-500">No check history yet.</div>';box.innerHTML=html;}
+  catch(e){document.getElementById("notice").textContent="History load failed: "+e.message;}
 }
 async function deleteMonitor(id){
- if(!confirm("Remove this monitoring target?"))return;
- try{
-  const r=await fetch(API_BASE+"/api/monitor/targets/"+encodeURIComponent(id),{method:"DELETE",headers:{...API_HEADERS()}});
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d.detail||("API "+r.status));
-  document.getElementById("notice").textContent="Monitoring target removed.";
-  document.getElementById("monitorHistory").classList.add("hidden");
-  loadMonitorTargets();
- }catch(e){document.getElementById("notice").textContent="Remove failed: "+e.message;}
+  if(!confirm("Remove this monitoring target?"))return;
+  try{const r=await fetch(API_BASE+"/api/monitor/targets/"+encodeURIComponent(id),{method:"DELETE",headers:{...API_HEADERS()}}),d=await r.json().catch(function(){return {};});if(!r.ok)throw new Error(apiErrorMessage(d,r.status));document.getElementById("notice").textContent="Monitoring target removed.";document.getElementById("monitorHistory").classList.add("hidden");await loadMonitorTargets();}
+  catch(e){document.getElementById("notice").textContent="Remove failed: "+e.message;}
 }
-
-async function addMonitor(){
- if(!API_BASE){document.getElementById("notice").textContent="Connect the dashboard to the API first.";return;}
- const url=document.getElementById("monitorUrl").value.trim(), name=document.getElementById("monitorName").value.trim();
- if(!url)return;
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/monitor/targets",{method:"POST",headers:{"Content-Type":"application/json",...API_HEADERS()},body:JSON.stringify({url,name:name||null})});
-  if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(apiErrorMessage(d,r.status));}
-  document.getElementById("monitorUrl").value="";document.getElementById("monitorName").value="";
-  document.getElementById("notice").textContent="Website added to backend monitoring.";
-  loadMonitorTargets();
- }catch(e){document.getElementById("notice").textContent="Monitor add failed: "+e.message;}
-}
-async function checkMonitor(id){
- try{
-  const r=await fetch(API_BASE.replace(/\/$/,"")+"/api/monitor/targets/"+encodeURIComponent(id)+"/check",{method:"POST",headers:{...API_HEADERS()}});
-  if(!r.ok)throw new Error("API "+r.status);
-  const d=await r.json();document.getElementById("notice").textContent="Website check: "+d.status+" ("+(d.response_ms??"N/A")+"ms).";loadMonitorTargets();loadLive();loadMe();
- }catch(e){document.getElementById("notice").textContent="Website check failed: "+e.message;}
+async function checkAllMonitors(){
+  if(!monitorCache.length){document.getElementById("notice").textContent="No monitoring targets to check.";return;}
+  document.getElementById("notice").textContent="Running checks...";
+  for(const row of monitorCache.slice())try{await checkMonitor(row.target_id);}catch(e){}
+  document.getElementById("notice").textContent="All checks completed.";
 }
 async function loadPublicMonitor(){
  if(!API_BASE||window.socRole!=="admin")return;
