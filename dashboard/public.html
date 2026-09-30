@@ -229,7 +229,7 @@ function renderMitreLibrary(){
  const maxPage=Math.max(0,Math.ceil(rows.length/MITRE_PAGE_SIZE)-1);
  if(mitrePageIndex>maxPage)mitrePageIndex=maxPage;
  const pageRows=rows.slice(mitrePageIndex*MITRE_PAGE_SIZE,(mitrePageIndex+1)*MITRE_PAGE_SIZE);
- document.getElementById("mitreLibrary").innerHTML=pageRows.length?pageRows.map(x=>"<article class='rounded-lg border border-slate-800 bg-slate-950 p-4'><div class='flex items-start justify-between gap-3'><div><div class='font-medium'>"+esc(x.name)+"</div><div class='mt-1 text-xs text-sky-400'>"+esc(x.id)+" • "+esc(x.type)+"</div></div><a href='"+esc(x.url)+"' target='_blank' rel='noopener' onclick='logTechnique("+JSON.stringify(x.id)+")' class='text-xs text-slate-400 hover:text-white'>MITRE ↗</a></div><div class='mt-3 text-xs text-slate-500'>"+esc((x.tactics||[]).join(" • ")||"Tactic not listed")+"</div><div class='mt-2 text-xs text-slate-400 line-clamp-3'>"+esc(x.description||"")+"</div></article>").join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500 md:col-span-2 xl:col-span-3">No ATT&CK items match your filter.</div>';
+ document.getElementById("mitreLibrary").innerHTML=pageRows.length?pageRows.map(x=>"<article class='rounded-lg border border-slate-800 bg-slate-950 p-4'><div class='flex items-start justify-between gap-3'><div><div class='font-medium'>"+esc(x.name)+"</div><div class='mt-1 text-xs text-sky-400'>"+esc(x.id)+" • "+esc(x.type)+"</div></div><div class='flex items-center gap-2'><button onclick='simulateMitre("+JSON.stringify(x.id)+")' class='rounded border border-sky-500/30 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/10'>Simulate</button><a href='"+esc(x.url)+"' target='_blank' rel='noopener' onclick='logTechnique("+JSON.stringify(x.id)+")' class='text-xs text-slate-400 hover:text-white'>MITRE ↗</a></div></div><div class='mt-3 text-xs text-slate-500'>"+esc((x.tactics||[]).join(" • ")||"Tactic not listed")+"</div><div class='mt-2 text-xs text-slate-400 line-clamp-3'>"+esc(x.description||"")+"</div></article>").join(""):'<div class="rounded-lg border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500 md:col-span-2 xl:col-span-3">No ATT&CK items match your filter.</div>';
  document.getElementById("mitrePageStatus").textContent=rows.length?"Showing "+(mitrePageIndex*MITRE_PAGE_SIZE+1)+"-"+Math.min((mitrePageIndex+1)*MITRE_PAGE_SIZE,rows.length)+" of "+rows.length:"0 results";
  document.getElementById("mitreLibraryStatus").textContent=mitreData.count?("MITRE ATT&CK Enterprise v"+mitreData.version+" loaded."):document.getElementById("mitreLibraryStatus").textContent;
 }
@@ -240,6 +240,20 @@ function mitrePage(direction){
  window.scrollTo({top:document.getElementById("mitreLibrary").offsetTop-120,behavior:"smooth"});
 }
 function logTechnique(id){logPublic("mitre_technique_opened",{technique_id:id});}
+function simulateMitre(id){
+ const t=(mitreData.techniques||[]).find(x=>x.id===id);
+ if(!t)return;
+ const scenario={severity:"MEDIUM",id:t.id,name:t.name,detection:"Synthetic ATT&CK technique simulation triggered"};
+ logPublic("attack_test",{technique_id:t.id,technique:t.name,source:"mitre_library",simulation:true});
+ const box=document.getElementById("attackResult");
+ box.classList.remove("hidden");
+ box.innerHTML="<div class='font-semibold'>"+esc(t.name)+"</div><div class='mt-2 text-xs text-slate-400'>"+esc(scenario.detection)+"</div><div class='mt-3 grid gap-2 text-xs sm:grid-cols-3'><div class='rounded bg-slate-900 p-2'>Severity: MEDIUM</div><div class='rounded bg-slate-900 p-2'>MITRE: "+esc(t.id)+"</div><div class='rounded bg-slate-900 p-2'>Governance: Human approval</div></div><div class='mt-3 text-xs text-slate-500'>Synthetic simulation only. No exploit payload is executed.</div>";
+ document.getElementById("demoStatus").textContent="MITRE simulation completed";
+ document.getElementById("demoSeverity").textContent="MEDIUM";
+ document.getElementById("demoMitre").textContent=t.id+" • "+t.name;
+ document.getElementById("demoDetection").textContent="Triggered";
+ document.getElementById("demoResponse").textContent="Human approval";
+}
 
 document.addEventListener("visibilitychange",()=>{
  const visible=document.visibilityState==="visible";
