@@ -25,7 +25,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.13.1")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.13.2")
 
 _cors_origins = [
     origin.strip()
@@ -198,6 +198,7 @@ def init_db():
             "owner_actor": "TEXT",
             "dns_info": "TEXT",
             "response_metadata": "TEXT",
+            "page_metadata": "TEXT",
         }
         for column, definition in migrations.items():
             if column not in columns:
@@ -608,6 +609,31 @@ def resolve_dns(hostname: str) -> dict:
     return records
 
 
+def extract_page_metadata(raw_body: bytes, response_url: str) -> dict:
+    metadata = {"title": None, "description": None, "canonical": None, "language": None, "generator": None}
+    try:
+        html = raw_body[:1024 * 1024].decode("utf-8", errors="replace")
+        import re
+        title = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+        description = re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)["\']', html, re.I)
+        canonical = re.search(r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']', html, re.I)
+        language = re.search(r"<html[^>]+lang=[\"']([^\"']+)[\"']", html, re.I)
+        generator = re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']*)["\']', html, re.I)
+        if title: metadata["title"] = " ".join(title.group(1).split())[:300]
+        if description: metadata["description"] = " ".join(description.group(1).split())[:500]
+        if canonical: metadata["canonical"] = canonical.group(1).strip()[:500]
+        if language: metadata["language"] = language.group(1).strip()[:40]
+        if generator: metadata["generator"] = generator.group(1).strip()[:200]
+    except Exception:
+        pass
+    return metadata
+
+
+def sanitize_response_headers(headers: dict) -> dict:
+    blocked = {"set-cookie", "authorization", "proxy-authorization", "www-authenticate"}
+    return {key: ("[redacted]" if key in blocked else value) for key, value in headers.items()}
+
+
 def check_target(target_id: str, url: str, name: str | None = None, actor: str = "monitor"):
     safe_public_url(url)
     started = time.perf_counter()
@@ -630,7 +656,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         row = connection.execute("SELECT * FROM monitor_targets WHERE target_id = ?", (target_id,)).fetchone()
         if row:
             previous = row["status"]
-            for key in ("security_headers", "tls_info", "redirect_chain", "content_hash", "findings", "dns_info", "response_metadata"):
+            for key in ("security_headers", "tls_info", "redirect_chain", "content_hash", "findings", "dns_info", "response_metadata", "page_metadata"):
                 try:
                     previous_snapshot[key] = json.loads(row[key]) if row[key] else None
                 except (TypeError, json.JSONDecodeError):
@@ -645,8 +671,9 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
             raw_body = response.read(1024 * 1024)
             content_length = len(raw_body)
             content_hash = hashlib.sha256(raw_body).hexdigest()
-            headers_snapshot = {str(k).lower(): str(v) for k, v in response.headers.items()}
+            headers_snapshot = sanitize_response_headers({str(k).lower(): str(v) for k, v in response.headers.items()})
             content_type = headers_snapshot.get("content-type")
+            page_metadata = extract_page_metadata(raw_body, final_url)
             response_metadata = {
                 "server": headers_snapshot.get("server"),
                 "powered_by": headers_snapshot.get("x-powered-by"),
@@ -664,7 +691,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
     except urllib.error.HTTPError as exc:
         status_code = exc.code
         final_url = exc.geturl() or url
-        headers_snapshot = {str(k).lower(): str(v) for k, v in exc.headers.items()}
+        headers_snapshot = sanitize_response_headers({str(k).lower(): str(v) for k, v in exc.headers.items()})
         content_type = headers_snapshot.get("content-type")
         response_metadata = {
             "server": headers_snapshot.get("server"),
@@ -690,6 +717,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         tls_info = {"valid": False, "error": str(exc)}
 
     response_ms = round((time.perf_counter() - started) * 1000, 2)
+    headers_snapshot = sanitize_response_headers(headers_snapshot)
     redirect_chain = redirect_tracker.chain
     missing_headers = [label for header, label in REQUIRED_SECURITY_HEADERS.items() if header not in headers_snapshot]
     weak_security_headers = []
@@ -743,11 +771,11 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         connection.execute(
             """UPDATE monitor_targets SET status=?, status_code=?, response_ms=?,
                last_checked=?, last_error=?, security_headers=?, tls_info=?,
-               redirect_chain=?, content_hash=?, findings=?, dns_info=?, response_metadata=? WHERE target_id=?""",
+               redirect_chain=?, content_hash=?, findings=?, dns_info=?, response_metadata=?, page_metadata=? WHERE target_id=?""",
             (status, status_code, response_ms, iso_now(), error,
              json.dumps(headers_snapshot), json.dumps(tls_info),
              json.dumps(redirect_chain), content_hash, json.dumps(findings),
-             json.dumps(dns_info), json.dumps(response_metadata), target_id),
+             json.dumps(dns_info), json.dumps(response_metadata), json.dumps(page_metadata), target_id),
         )
         connection.execute(
             """INSERT INTO monitor_checks
@@ -791,6 +819,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         "content_hash": content_hash,
         "content_length_bytes": content_length,
         "response_metadata": response_metadata,
+        "page_metadata": page_metadata,
         "dns": dns_info,
         "findings": findings,
         "alerts_generated": [item[0] for item in alerts[:5]],
