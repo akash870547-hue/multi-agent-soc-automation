@@ -1,5 +1,5 @@
 import json
-from .agents import InvestigationAgent, ReportingAgent, ResponseAgent, TriageAgent
+from .agents import InvestigationAgent, ReportingAgent, ResponseAgent, ThreatIntelligenceAgent, TriageAgent
 from .detection import detect
 from .models import Incident, SecurityEvent
 
@@ -10,6 +10,7 @@ def process_event(event: SecurityEvent) -> dict | None:
         return None
     incident = Incident(incident_id=f"INC-{alert.alert_id}", alert=alert)
     incident.findings.extend(TriageAgent().run(alert))
+    incident.findings.extend(ThreatIntelligenceAgent().run(event, incident))
     incident.findings.extend(InvestigationAgent().run(incident))
     incident.recommendations.extend(ResponseAgent().run(incident))
     return ReportingAgent().run(incident)
