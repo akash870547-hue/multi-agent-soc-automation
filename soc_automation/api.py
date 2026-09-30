@@ -634,6 +634,22 @@ def sanitize_response_headers(headers: dict) -> dict:
     return {key: ("[redacted]" if key in blocked else value) for key, value in headers.items()}
 
 
+def monitor_posture(findings: list[str], status: str, tls_info: dict) -> dict:
+    score = 100
+    score -= min(45, len(findings) * 8)
+    if status == "degraded":
+        score -= 15
+    elif status == "down":
+        score -= 45
+    if not tls_info.get("valid"):
+        score -= 25
+    elif tls_info.get("days_to_expiry") is not None and tls_info["days_to_expiry"] <= 30:
+        score -= 15
+    score = max(0, min(100, score))
+    risk = "low" if score >= 85 else "moderate" if score >= 65 else "high" if score >= 40 else "critical"
+    return {"score": score, "risk": risk, "finding_count": len(findings)}
+
+
 def check_target(target_id: str, url: str, name: str | None = None, actor: str = "monitor"):
     safe_public_url(url)
     started = time.perf_counter()
@@ -648,6 +664,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
     content_type = None
     dns_info = {}
     response_metadata = {}
+    page_metadata = {}
     tls_info = {"valid": False, "error": "not checked"}
     previous = None
     previous_snapshot = {}
@@ -693,6 +710,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         final_url = exc.geturl() or url
         headers_snapshot = sanitize_response_headers({str(k).lower(): str(v) for k, v in exc.headers.items()})
         content_type = headers_snapshot.get("content-type")
+        page_metadata = {}
         response_metadata = {
             "server": headers_snapshot.get("server"),
             "powered_by": headers_snapshot.get("x-powered-by"),
@@ -708,6 +726,7 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
     except Exception as exc:
         status = "down"
         error = str(exc)
+        page_metadata = {}
 
     hostname = urlparse(url).hostname
     dns_info = resolve_dns(hostname) if hostname else {"resolved": False, "error": "missing hostname"}
@@ -822,13 +841,37 @@ def check_target(target_id: str, url: str, name: str | None = None, actor: str =
         "page_metadata": page_metadata,
         "dns": dns_info,
         "findings": findings,
+        "posture": monitor_posture(findings, status, tls_info),
         "alerts_generated": [item[0] for item in alerts[:5]],
     }
 
 
+_monitor_stop = threading.Event()
+
+
+def monitor_background_loop():
+    interval = max(60, MONITOR_INTERVAL)
+    while not _monitor_stop.is_set():
+        try:
+            with db() as connection:
+                rows = connection.execute("SELECT target_id,url,name FROM monitor_targets").fetchall()
+            for row in rows:
+                try:
+                    check_target(row["target_id"], row["url"], row["name"], actor="monitor")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        _monitor_stop.wait(interval)
+
+
+if os.getenv("SOC_ENABLE_MONITOR_LOOP", "true").lower() in {"1", "true", "yes"}:
+    threading.Thread(target=monitor_background_loop, name="soc-monitor", daemon=True).start()
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.13.0"}
+    return {"status": "ok", "service": "multi-agent-soc", "storage": "sqlite", "version": "0.13.2"}
 
 
 @app.get("/ready")
@@ -1103,7 +1146,7 @@ def _monitor_rows(actor: str, role: str):
     output = []
     for row in rows:
         item = dict(row)
-        for key in ("security_headers", "tls_info", "redirect_chain", "findings"):
+        for key in ("security_headers", "tls_info", "redirect_chain", "findings", "dns_info", "response_metadata", "page_metadata"):
             try:
                 item[key] = json.loads(item[key]) if item[key] else {}
             except (TypeError, json.JSONDecodeError):
@@ -1124,6 +1167,21 @@ def _monitor_target_for_actor(target_id: str, actor: str, role: str):
     if not row:
         raise HTTPException(status_code=404, detail="Monitoring target not found")
     return row
+
+
+@app.get("/api/monitor/summary")
+def monitor_summary(x_api_key: str | None = Header(default=None)):
+    actor, role = require_role(x_api_key, {"admin", "responder", "analyst"})
+    rows = _monitor_rows(actor, role)
+    return {
+        "total": len(rows),
+        "up": sum(1 for row in rows if row.get("status") == "up"),
+        "degraded": sum(1 for row in rows if row.get("status") == "degraded"),
+        "down": sum(1 for row in rows if row.get("status") == "down"),
+        "attention": sum(1 for row in rows if row.get("findings")),
+        "certificates_expiring_30d": sum(1 for row in rows if (row.get("tls_info") or {}).get("days_to_expiry") is not None and (row.get("tls_info") or {}).get("days_to_expiry") <= 30),
+        "updated_at": iso_now(),
+    }
 
 
 @app.get("/api/monitor/targets")
