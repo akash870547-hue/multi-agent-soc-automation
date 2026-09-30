@@ -431,8 +431,10 @@ def load_mitre_techniques() -> dict:
         MITRE_ENTERPRISE_STIX_URL,
         headers={"User-Agent": "Multi-Agent-SOC-MITRE-Catalog/1.0"},
     )
-    with urllib.request.urlopen(request, timeout=25) as response:
-        raw = response.read(8 * 1024 * 1024)
+    with urllib.request.urlopen(request, timeout=45) as response:
+        # The official ATT&CK Enterprise STIX bundle is larger than 8 MB.
+        # Read the complete response so the JSON bundle can be parsed safely.
+        raw = response.read()
     bundle = json.loads(raw.decode("utf-8"))
     techniques = []
     for item in bundle.get("objects", []):
