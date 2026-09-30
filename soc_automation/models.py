@@ -39,3 +39,5 @@ class Incident(BaseModel):
     recommendations: list[str] = Field(default_factory=list)
     iocs: dict[str, list[str]] = Field(default_factory=lambda: {"ipv4": [], "sha256": []})
     mitre: dict = Field(default_factory=dict)
+    approved_actions: list[str] = Field(default_factory=list)
+    governance: dict = Field(default_factory=lambda: {"approval_required": True, "approved": False})
