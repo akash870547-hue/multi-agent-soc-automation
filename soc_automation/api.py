@@ -25,7 +25,7 @@ from .models import SecurityEvent
 from .pipeline import process_event
 from .threat_intel import enrich_indicator
 
-app = FastAPI(title="Multi-Agent SOC Automation API", version="0.11.0")
+app = FastAPI(title="Multi-Agent SOC Automation API", version="0.12.0")
 
 _cors_origins = [
     origin.strip()
@@ -81,6 +81,12 @@ class UserGenerate(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class UserRegister(BaseModel):
+    username: str
+    password: str
+    role: str = "analyst"
 
 
 class PublicTelemetry(BaseModel):
