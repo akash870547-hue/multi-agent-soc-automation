@@ -264,6 +264,7 @@ def authenticate(x_api_key: str | None) -> tuple[str, str]:
                         if not user_row or user_row["revoked_at"]:
                             continue
                     return actor or row["key_id"], row["role"]
+
     raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
