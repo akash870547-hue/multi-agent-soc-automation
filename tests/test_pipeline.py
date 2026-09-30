@@ -41,3 +41,16 @@ def test_ioc_extraction_finds_ip_inside_message():
     result = process_event(event)
     assert "192.0.2.55" in result["iocs"]["ipv4"]
     assert result["mitre"]["technique_id"] == "T1204"
+
+
+def test_reasoning_layer_prioritizes_critical_incident():
+    event = SecurityEvent(
+        event_id="EVT-TEST-005",
+        source="endpoint",
+        event_type="malware",
+        message="ransomware activity detected from 203.0.113.77",
+    )
+    result = process_event(event)
+    assert result["reasoning"]["engine"] == "deterministic-v1"
+    assert result["reasoning"]["priority"] == "P1"
+    assert result["reasoning"]["next_steps"]
