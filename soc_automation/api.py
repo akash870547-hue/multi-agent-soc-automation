@@ -659,7 +659,8 @@ def revoke_api_key(key_id: str, x_api_key: str | None = Header(default=None), x_
 
 
 @app.get("/api/agents")
-def agents():
+def agents(x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin", "responder", "analyst"})
     return {"agents": [
         {"name": "Triage Agent", "status": "ready"},
         {"name": "Threat Intelligence Agent", "status": "ready"},
@@ -670,12 +671,14 @@ def agents():
 
 
 @app.get("/api/incidents")
-def list_incidents():
+def list_incidents(x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin", "responder", "analyst"})
     return load_incidents()
 
 
 @app.get("/api/incidents/{incident_id}")
-def get_incident(incident_id: str):
+def get_incident(incident_id: str, x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin", "responder", "analyst"})
     return get_incident_or_404(incident_id)
 
 
@@ -734,7 +737,8 @@ def ingest_event(event: SecurityEvent, x_api_key: str | None = Header(default=No
 
 
 @app.get("/api/threat-intel/{indicator}")
-def threat_intel(indicator: str):
+def threat_intel(indicator: str, x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin", "responder", "analyst"})
     return enrich_indicator(indicator)
 
 
@@ -926,7 +930,8 @@ def monitor_target_check(target_id: str, x_api_key: str | None = Header(default=
 
 
 @app.get("/api/metrics")
-def metrics():
+def metrics(x_api_key: str | None = Header(default=None)):
+    require_role(x_api_key, {"admin", "responder", "analyst"})
     values = load_incidents()
     mttd_values, mttr_values = [], []
     for incident in values:
