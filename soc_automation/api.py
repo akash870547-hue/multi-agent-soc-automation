@@ -8,6 +8,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from collections import defaultdict, deque
 
 from fastapi import FastAPI, Header, HTTPException
@@ -159,7 +160,7 @@ def require_role(x_api_key: str | None, allowed_roles: set[str]) -> tuple[str, s
 
 
 def safe_public_url(url: str) -> None:
-    parsed = urllib.request.urlparse(url)
+    parsed = urlparse(url)
     if parsed.scheme != "https":
         raise HTTPException(status_code=400, detail="Only HTTPS monitoring targets are allowed")
     hostname = parsed.hostname
@@ -362,7 +363,7 @@ def add_monitor_target(target: MonitorTarget, x_api_key: str | None = Header(def
     try:
         with db() as connection:
             connection.execute(
-                "INSERT INTO monitor_targets(target_id,url,name,status) VALUES (?,?,?,?,?)",
+                "INSERT INTO monitor_targets(target_id,url,name,status) VALUES (?,?,?,?)",
                 (target_id, url, target.name or url, "unknown"),
             )
     except sqlite3.IntegrityError:
